@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<head>
+<meta charset="utf-8">
+$for(author-meta)$
+  <meta name="author" content="$author-meta$" />
+$endfor$
+$if(date-meta)$
+  <meta name="dcterms.date" content="$date-meta$" />
+$endif$
+  <title>$if(title-prefix)$$title-prefix$ - $endif$$if(pagetitle)$$pagetitle$$endif$</title>
+$if(highlighting-css)$
+  <style type="text/css">
+$highlighting-css$
+  </style>
+$endif$
+$if(css)$
+$for(css)$
+  <link rel="stylesheet" href="$css$" $if(html5)$$else$type="text/css" $endif$/>
+$endfor$
+$else$
+<link href='http://fonts.googleapis.com/css?family=Raleway:300,400|Source+Sans+Pro:300,400' rel='stylesheet'>
+<style>
+  html { background-color: black; }
+  a { color: #FF0044; } a:hover {text-decoration: underline;}
+  footer { position: absolute; bottom: 50px; right: 50px; }
+  strong,code {color: #fff; }
+  body {
+      font-family: 'Source Sans Pro', arial, sans-serif;
+      background-color: black;
+      color: white;
+      font-size: 30px;
+      background: #232326;
+  }
+
+  .red {
+      color: #cb243c;
+  }
+  .pink {
+    color: #ff2c7e;
+  }
+
+  .before {
+      z-index: 10000;
+      position: absolute;
+      width: 100%;
+      top: 0;
+      color: #fff;
+      text-align: right;
+  }
+  .after {
+      z-index: 10000;
+      position: absolute;
+      width: 100%;
+      bottom: 0;
+      text-align: right;
+  }
+
+  .title-slide a {
+    color: white;
+  }
+  .title-slidea:hover {
+    text-decoration: underline;
+  }
+  .title-slide img {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+  }
+
+  .title-slide .red {
+      color: #cb243c;
+  }
+
+  .title-slide .title {
+     margin-top: 90px;
+     margin-left: 10px;
+     text-align: left;
+     line-height: 1.4em;
+     color: white;
+     font-weight: 300;
+  }
+
+
+  /* Transition effect */
+  section {
+      /*
+      -moz-transition: left 400ms ease-in 0s;
+      -webkit-transition: left 400ms ease-in 0s;
+      -ms-transition: left 400ms ease-in 0s;
+      transition: left 400ms ease-in 0s;
+      */
+      background: #0B0629;
+      color:white;
+  }
+  section { left: -150%; }
+  section[aria-selected] { left: 0; }
+  section[aria-selected] ~ section { left: +150% }
+  section img {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+  }
+
+  .chapter { background-color: white;}
+  .chapter h1 {line-height: 600px; vertical-align: middle; margin: 0; text-align: center; display: block}
+
+  h1,h2,h3,h4,h5,h6 {
+      font-family: 'Raleway', arial, serif;
+      font-weight: 300;
+      margin: 30px 100px 0 100px;
+  }
+
+  h1 {
+      margin: 0 auto 0 auto;
+      padding-top: calc(50% - 150px);
+      font-size: 3vw;
+      /*text-shadow: 0px -1px 0px #000;*/
+      text-align: center;
+  }
+  .slide h1 small + .slide figure {color:#000}
+
+
+  h2 {
+      color: #fff;
+      margin-top: 10px;
+      font-size: 2.5vw;
+      text-align: left;
+  }
+  h3,h4,h5,h6 {
+      color: #fff;
+      margin-top: 10px;
+      font-size: 2vw;
+      text-align: left;
+  }
+
+  h1.title {
+      color: #000;
+      font-size: 3vw;
+      position: absolute;
+      top: 50px;
+      left: 90px;
+      padding-top: 0px;
+  }
+
+  .author {
+      margin: 0;
+      font-size: 0.9em;
+      position: absolute;
+      top: -150px;
+      left: -150px;
+  }
+
+  .twitter {
+    text-align: right;
+    font-size: 0.7em;
+    position: absolute;
+    bottom: -47px;
+    right: -45px;
+  }
+
+  ul {
+      margin-top: 200px;
+      font-size: 30px;
+      text-align: right;
+      border-right: 4px solid white;
+      padding-right: 40px;
+      min-width: 310px;
+      margin-left: 50px;
+      display: inline-block;
+  }
+  q, p {
+      margin-top: 50px;
+      margin-left: 20px;
+      width: 100%;
+      font-size: 1.5em;
+      /*text-align: center;*/
+  }
+  q:after {content: ""}
+  q:before {content: ""}
+  q {
+      display: block;
+      margin-top: 140px;
+  }
+  #arrow {
+      position: absolute;
+      top: 165px;
+      left: 460px;
+      font-size: 100px;
+      color: white;
+
+  }
+  li {list-style-type: none}
+
+  pre {
+      /*font-size: 18px;*/
+      color: white;
+      margin: 2em;
+  }
+
+  .slide h1 {
+      width: 100%;
+      position: absolute;
+      padding: 0;
+      width: 100%;
+      text-align: center;
+      top: 50px;
+      z-index: 1000;
+  }
+
+  .slide h2, .slide h3 {
+      margin: 0;
+      font-size: 3vw;
+      width: 100%;
+      position: absolute;
+      padding: 0;
+      width: 100%;
+      text-align: center;
+      top: 40%;
+      z-index: 1000;
+  }
+
+  .slide h3 {
+      top: 30%;
+  }
+
+  .slide h1+video,
+  .slide video {
+      display: block;
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+  }
+
+  h1+p, h1+pre, .text {
+      position: absolute;
+      bottom: 160px;
+  }
+
+  .bottom {
+    bottom: 50px;
+  }
+
+  .big {
+      font-size: 1.5em;
+  }
+
+  h1+pre {
+    position: absolute;
+    bottom: 10px;
+  }
+
+</style>
+$endif$
+$if(math)$
+  $math$
+$endif$
+$for(header-includes)$
+  $header-includes$
+$endfor$
+</head>
+<body>
+<!--<div class="before">
+    <img src="assets/scalaio_medium.png" />
+</div>-->
+<div class="after">
+</div>
+$if(title)$
+<section class="title-slide">
+  <h1 class="title">$title$</h1>
+  <footer>
+$for(author)$
+  <div class="author">$author$</div>
+$endfor$
+    <div class="twitter"><a href="https://twitter.com/gcouprie">@gcouprie</a></div>
+    <div class="twitter"><a href="https://twitter.com/pollux7">@pollux7</a></div>
+  </footer>
+</section>
+$endif$
+$for(include-before)$
+$include-before$
+$endfor$
+<section class="intro-slide">
+    <img src="assets/itAuto.png">
+</section>
+$body$
+<section class="intro-slide">
+    <img src="assets/itAuto.png">
+</section>
+$for(include-after)$
+$include-after$
+$endfor$
+$dzslides-core$
+
+<style>
+    .title-slide{
+      background-color: #cb243cff;
+      color: white;
+    }
+    .title-slide img {
+        opacity: 0.3;
+    }
+    .intro-slide img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .intro-slide {
+        background-color: #0B0629;
+    }
+    .end-slide img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .end-slide {
+        background-color: #0B0629;
+    }
+
+    .yolo {
+        width: 100%;
+        height: 100%;
+    }
+
+    .yolo h2 {
+        background-color: rgba(0,0,0,0);
+    }
+    body.loaded {
+     height: 450px;
+     margin-top: -225px;
+    }
+
+    .sourceCode {
+      font-size: 20px;
+    }
+
+    img.centered {
+      /*min-height: 400px;
+      max-height: 80%;
+        */
+      margin-left:auto;
+      margin-right: auto;
+      /*position: absolute;*/
+      left:0;
+      right:0;
+      width: 60%;
+    }
+
+    table {
+      margin-top: 170px;
+      margin-left: 20px;
+      border-collapse:collapse;
+      font-size: 27px;
+    }
+
+    tr,td, th {
+      border: dotted 2px #FFF;
+      padding-left: 5px;
+      padding-right: 5px;
+    }
+
+</style>
+</body>
+</html>
