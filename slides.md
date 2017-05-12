@@ -16,53 +16,53 @@ we're pushing some Rust in production now
 ssh jail, proxy, git subsystems
 </details>
 
-# VideoLAN
+# Writing new code
 
-<img src="img/largeVLC.png" class="centered" />
+- we can write new code in safer languages
+- we can make new parsers with better techniques
+- we can plan our code for formal proofs
+
+# But...
+
+most of the existing code is written in unsafe
+languages with weak development practices
+
+#
+
+## Typically
+
+- in C or C++
+- handwritten parsers
+- highly coupled code
+- hard to test and refactor
+
+# We cannot rewrite those projects entirely
+
+- often between 10k and 1M lines of code
+- old code base
+- huge domain knowledge
+
+# We cannot rewrite those projects entirely
+
+- big risk of regressions
+- politics
+
+# Solution
+
+Surgically replacing the unsafe parts of the code
+
+# Shopping list
+
+- a language that can call C (good FFI support)
+- a language that can be called by C
+- if possible, no garbage collection
+- "fast enough"
 
 <aside class="notes">
-what I do at VideoLAN
-
-VLC handles most audio, video and streaming formats
+fast enough means nearly as fast as C, to convince C developers
 </details>
 
-# VLC media player vulnerabilities
-
-- invalid freeing of pointers in 3GP (CVE-2015-5949)
-- crash with divide by zero in ASF (CVE-2014-1684)
-- buffer overflow for Dirac streams (CVE-2014-9629)
-- invalid memory access in RTP (CVE-2014-9630)
-- buffer overflows in MP4 demuxer (CVE-2014-9626, CVE-2014-9627, CVE-2014-9628)
-
-<aside class="notes">
-handling multiple formats is dangerous. MP4 has a lot of flaws, but not the MKV demuxer
-
-fuzzing
-</details>
-
-# Format vulnerabilities
-
-* C
-* manual parsing
-* weird formats
-
-<aside class="notes">
-a good developer would avoid those issues
-But how can we fight the urge to write vulnerable code?
-</details>
-
-# We need a practical solution
-
-- hard to do mistakes
-- memory safe
-- embeddable in C (no runtime or GC)
-- efficient, streaming
-
-<aside class="notes">
-if not for the "embeddable", I would write some haskell
-</details>
-
-# Yay! Rust!
+# Rust
 
 <img src="img/rust-logo-512x512.png" class="centered" />
 
@@ -71,6 +71,10 @@ if not for the "embeddable", I would write some haskell
 - slices are really useful
 - easy FFI
 </details>
+
+# Rust
+
+INSERT GOOD THINGS ABOUT RUST HERE
 
 # nom
 
@@ -205,79 +209,29 @@ fn data<'a>(i: &'a [u8]) -> ::nom::IResult<&'a [u8], &[u8], u32> {
 }
 ```
 
-# nom features
+# features
 
-- strings (&str), byte slices and bit streams parsing
-- common combinators (many, pair, peek, etc)
-- regular expressions
-- advanced error management
+INSERT GOOD THINGS ABOUT NOM HERE
 
-<img src="img/colorful-ftyp.png" style="position:absolute; bottom: 100px; left: 150px" />
+# Integrating Rust in existing C projects
 
-# benefits
+- VLC media player
+- suricata
 
-- works on all Rust versions since 1.0
-- no syntax extensions, no impl Trait
-- supports no_std
-- can be as fast as C parsers
-- designed with streaming in mind
-- very easy to extend (it's just functions!)
+# VideoLAN
 
-# nom 2.0 highlights: whitespace parsing
+<img src="img/largeVLC.png" class="centered" />
 
-```rust
-named!(key_value<(&str,JsonValue)>,
-  ws!(
-    separated_pair!(
-      string,
-      tag!(":"),
-      value
-    )
-  )
-);
-```
+<aside class="notes">
+what I do at VideoLAN
 
-# nom 2.0 highlights: permutation combinator
-
-```rust
-named!(perm<&str,(&str, &str, &str)>,
-  permutation!(tag!("abcd"), tag!("efg"), tag!("hi"))
-);
-
-assert_eq!(perm("efghiabcd"), Done("", ("abcd", "efg", "hi"));
-```
-
-# nom 2.0 highlights: do_parse
-
-```rust
-named!(tag_length_value,
-  do_parse!(
-            tag!( &[ 42u8 ][..] ) >>
-    length: be_u8                 >>
-    bytes:  take!(length)         >>
-    (bytes)
-  )
-);
-```
-
-# nom 2.0 highlights: custom input types
-
-- not limited to &[u8] and &str anymore
-- can work with iterators
-- can work with ropes based structures
-- will allow SIMD based parsing
-
-# nom 2.0 highlights
-
-- tag_no_case: case independent comparison
-- &str and &[u8] specific combinators were merged
-- big cleanup and breaking changes
-- simple VS verbose error management
-- 30% to 50% performance gain for most parsers
+VLC handles most audio, video and streaming formats
+</details>
 
 # VLC media player
 
-<img src="img/largeVLC.png" class="centered" />
+- dozens of formats and protocols
+- written in C and C++
 
 # How VLC works
 
@@ -298,6 +252,12 @@ access -> demux (=> audio and video streams) -> decode -> filter -> (encode -> s
 - libVLC: a layer above libVLCCore for external applications
 - vlc: a small executable calling libVLC
 </details>
+
+# Let's build a VLC plugin in Rust
+
+- integrating a FLV parser written with nom
+- with an ABI compatible DLL
+- built with autotools
 
 # Lifetime of a VLC module
 
@@ -538,31 +498,6 @@ vlc_module!(vlc_entry__3_0_0a,
 
 ```rust
 named!(pub header<Header>,
-  chain!(
-             tag!("FLV") ~
-    version: be_u8       ~
-    flags:   be_u8       ~
-    offset:  be_u32      ,
-    || {
-      Header {
-        version: version,
-        audio:   flags & 4 == 4,
-        video:   flags & 1 == 1,
-        offset:  offset
-      }
-    }
-  )
-);
-```
-
-<aside class="notes">
-show the do_parse syntax that could replace it
-</details>
-
-# In nom 2.0
-
-```rust
-named!(pub header<Header>,
   do_parse!(
                 tag!("FLV")
     >> version: be_u8
@@ -577,6 +512,10 @@ named!(pub header<Header>,
   )
 );
 ```
+
+<aside class="notes">
+show the do_parse syntax that could replace it
+</details>
 
 # Parse the header
 
@@ -734,7 +673,6 @@ pub fn audio_data_header(input: &[u8]) -> IResult<&[u8], AudioDataHeader> {
   })
 }
 ```
-
 # Check the header (audio case)
 
 ```rust
@@ -772,8 +710,6 @@ sometimes, you can't write rust-y code, you need to adapt to the APIs
 
 # Demo
 
-<img class="centered" src="img/wiggle.gif" style="height: 500px" />
-
 # Now, the build system
 
 <img src="img/autotools.jpg" class="centered" />
@@ -784,6 +720,12 @@ we have a VLC plugin that we can drop in the module folder, can we build it insi
 VLC uses the autotools heavily, and builds the module correctly for the right platform
 automatically (with libtool, etc)
 </details>
+
+# Integrating with autotools
+
+- rustc knows how to make libraries
+- libtool knows how to make libraries
+- let's make an object file and give it to libtool
 
 # First, check for cargo and Rust
 
@@ -827,6 +769,209 @@ demux_LTLIBRARIES += librust1_plugin.la
 <aside class="notes">
 we generate an obj file and give it to the build system
 </details>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# More info
+
+* Nom: https://github.com/Geal/nom
+* slides: http://dev.unhandledexpression.com/slides/rust-belt-rust-2016/vlc
+* flavors: https://github.com/Geal/flavors
+* helper library: https://github.com/Geal/vlc_module.rs
+* the module: https://github.com/Geal/rust-vlc-demux
+* twitter: <span class="twitter">@gcouprie</span>
+
+
+# Thanks!
+
+# Parsers ?
+
+# STOP
+
+#
+
+#
+
+#########################################
+
+
+
+
+# VLC media player vulnerabilities
+
+- invalid freeing of pointers in 3GP (CVE-2015-5949)
+- crash with divide by zero in ASF (CVE-2014-1684)
+- buffer overflow for Dirac streams (CVE-2014-9629)
+- invalid memory access in RTP (CVE-2014-9630)
+- buffer overflows in MP4 demuxer (CVE-2014-9626, CVE-2014-9627, CVE-2014-9628)
+
+<aside class="notes">
+handling multiple formats is dangerous. MP4 has a lot of flaws, but not the MKV demuxer
+
+fuzzing
+</details>
+
+# Format vulnerabilities
+
+* C
+* manual parsing
+* weird formats
+
+<aside class="notes">
+a good developer would avoid those issues
+But how can we fight the urge to write vulnerable code?
+</details>
+
+# We need a practical solution
+
+- hard to do mistakes
+- memory safe
+- embeddable in C (no runtime or GC)
+- efficient, streaming
+
+<aside class="notes">
+if not for the "embeddable", I would write some haskell
+</details>
+
+# Yay! Rust!
+
+<img src="img/rust-logo-512x512.png" class="centered" />
+
+<aside class="notes">
+- Rust makes memory handling easier
+- slices are really useful
+- easy FFI
+</details>
+
+# nom features
+
+- strings (&str), byte slices and bit streams parsing
+- common combinators (many, pair, peek, etc)
+- regular expressions
+- advanced error management
+
+<img src="img/colorful-ftyp.png" style="position:absolute; bottom: 100px; left: 150px" />
+
+# benefits
+
+- works on all Rust versions since 1.0
+- no syntax extensions, no impl Trait
+- supports no_std
+- can be as fast as C parsers
+- designed with streaming in mind
+- very easy to extend (it's just functions!)
+
+# nom 2.0 highlights: whitespace parsing
+
+```rust
+named!(key_value<(&str,JsonValue)>,
+  ws!(
+    separated_pair!(
+      string,
+      tag!(":"),
+      value
+    )
+  )
+);
+```
+
+# nom 2.0 highlights: permutation combinator
+
+```rust
+named!(perm<&str,(&str, &str, &str)>,
+  permutation!(tag!("abcd"), tag!("efg"), tag!("hi"))
+);
+
+assert_eq!(perm("efghiabcd"), Done("", ("abcd", "efg", "hi"));
+```
+
+# nom 2.0 highlights: do_parse
+
+```rust
+named!(tag_length_value,
+  do_parse!(
+            tag!( &[ 42u8 ][..] ) >>
+    length: be_u8                 >>
+    bytes:  take!(length)         >>
+    (bytes)
+  )
+);
+```
+
+# nom 2.0 highlights: custom input types
+
+- not limited to &[u8] and &str anymore
+- can work with iterators
+- can work with ropes based structures
+- will allow SIMD based parsing
+
+# nom 2.0 highlights
+
+- tag_no_case: case independent comparison
+- &str and &[u8] specific combinators were merged
+- big cleanup and breaking changes
+- simple VS verbose error management
+- 30% to 50% performance gain for most parsers
+
+# VLC media player
+
+<img src="img/largeVLC.png" class="centered" />
+
+# How VLC works
+
+<img src="img/vlc-pipeline.png" class="centered" />
+
+<aside class="notes">
+The pipeline
+
+access -> demux (=> audio and video streams) -> decode -> filter -> (encode -> stream) | (video and audio out)
+</details>
+
+# Code architecture
+
+<img src="img/vlc-arch.png" class="centered" />
+
+<aside class="notes">
+- libVLCCore: handles module loading, playlist, synchronization, the whole pipeline
+- libVLC: a layer above libVLCCore for external applications
+- vlc: a small executable calling libVLC
+</details>
+
+# Lifetime of a VLC module
+
+- libVLCCore looks for dynamic libraries in a specified folder
+- those dynamic libraries expose three functions:
+  - vlc_entry__VERSION (example: vlc_entry__3_0_0a)
+  - vlc_entry_copyright__VERSION
+  - vlc_entry_license__VERSION
+- libVLCCore calls vlc_entry__VERSION and the module registers callbacks
+- libVLCCore calls the module when needed
+
+<aside class="notes">
+so we don't control anything from the module, we just take orders
+</details>
+
+
+# The plan
+
+- reproduce needed structures from VLC headers
+- link to libVLCCore and import useful functions
+- reproduce the module registration code
+- write a FLV parser
+- parse stuff
+
 
 # Summing up
 
