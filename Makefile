@@ -1,7 +1,7 @@
 all: slides.html
 
 slides.html: slides.md template.html
-	pandoc --section-divs -t revealjs \
+	pandoc --section-divs --no-highlight -t revealjs \
 		   --template template.html \
 	       -s slides.md \
 		   -o slides-light.html
