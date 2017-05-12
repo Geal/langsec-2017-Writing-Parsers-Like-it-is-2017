@@ -1,0 +1,21 @@
+.reveal .slides {
+  height: 100%;
+  top: 0;
+  margin-top: 0;
+}
+
+.reveal .slides>section {
+  min-height: 90%;
+}
+
+.reveal .slides>section>section {
+  min-height: 100%;
+}
+
+.reveal pre code {
+    max-height: 80%;
+}
+
+.smaller {
+    font-size: 24px !important;
+}

@@ -1,371 +1,851 @@
-<!DOCTYPE html>
-<head>
-<meta charset="utf-8">
-$for(author-meta)$
-  <meta name="author" content="$author-meta$" />
-$endfor$
-$if(date-meta)$
-  <meta name="dcterms.date" content="$date-meta$" />
-$endif$
-  <title>$if(title-prefix)$$title-prefix$ - $endif$$if(pagetitle)$$pagetitle$$endif$</title>
-$if(highlighting-css)$
-  <style type="text/css">
-$highlighting-css$
-  </style>
-$endif$
-$if(css)$
-$for(css)$
-  <link rel="stylesheet" href="$css$" $if(html5)$$else$type="text/css" $endif$/>
-$endfor$
-$else$
-<link href='http://fonts.googleapis.com/css?family=Raleway:300,400|Source+Sans+Pro:300,400' rel='stylesheet'>
-<style>
-  html { background-color: black; }
-  a { color: #FF0044; } a:hover {text-decoration: underline;}
-  footer { position: absolute; bottom: 50px; right: 50px; }
-  strong,code {color: #fff; }
-  body {
-      font-family: 'Source Sans Pro', arial, sans-serif;
-      background-color: black;
-      color: white;
-      font-size: 30px;
-      background: #232326;
-  }
+<html>
+    <head>
+        <meta name="description" content="Rust Parsers">
+        <meta name="author" content="Pierre Chifflier">
 
-  .red {
-      color: #cb243c;
-  }
-  .pink {
-    color: #ff2c7e;
-  }
+        <meta charset="UTF-8">
 
-  .before {
-      z-index: 10000;
-      position: absolute;
-      width: 100%;
-      top: 0;
-      color: #fff;
-      text-align: right;
-  }
-  .after {
-      z-index: 10000;
-      position: absolute;
-      width: 100%;
-      bottom: 0;
-      text-align: right;
-  }
+        <link rel="stylesheet" href="reveal.js/css/reveal.css">
+        <link rel="stylesheet" href="reveal.js/css/theme/white.css" id="theme">
 
-  .title-slide a {
-    color: white;
-  }
-  .title-slidea:hover {
-    text-decoration: underline;
-  }
-  .title-slide img {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-  }
+        <link rel="stylesheet" href="reveal.js/lib/css/zenburn.css">
 
-  .title-slide .red {
-      color: #cb243c;
-  }
-
-  .title-slide .title {
-     margin-top: 90px;
-     margin-left: 10px;
-     text-align: left;
-     line-height: 1.4em;
-     color: white;
-     font-weight: 300;
-  }
-
-
-  /* Transition effect */
-  section {
-      /*
-      -moz-transition: left 400ms ease-in 0s;
-      -webkit-transition: left 400ms ease-in 0s;
-      -ms-transition: left 400ms ease-in 0s;
-      transition: left 400ms ease-in 0s;
-      */
-      background: #0B0629;
-      color:white;
-  }
-  section { left: -150%; }
-  section[aria-selected] { left: 0; }
-  section[aria-selected] ~ section { left: +150% }
-  section img {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-  }
-
-  .chapter { background-color: white;}
-  .chapter h1 {line-height: 600px; vertical-align: middle; margin: 0; text-align: center; display: block}
-
-  h1,h2,h3,h4,h5,h6 {
-      font-family: 'Raleway', arial, serif;
-      font-weight: 300;
-      margin: 30px 100px 0 100px;
-  }
-
-  h1 {
-      margin: 0 auto 0 auto;
-      padding-top: calc(50% - 150px);
-      font-size: 3vw;
-      /*text-shadow: 0px -1px 0px #000;*/
-      text-align: center;
-  }
-  .slide h1 small + .slide figure {color:#000}
-
-
-  h2 {
-      color: #fff;
-      margin-top: 10px;
-      font-size: 2.5vw;
-      text-align: left;
-  }
-  h3,h4,h5,h6 {
-      color: #fff;
-      margin-top: 10px;
-      font-size: 2vw;
-      text-align: left;
-  }
-
-  h1.title {
-      color: #000;
-      font-size: 3vw;
-      position: absolute;
-      top: 50px;
-      left: 90px;
-      padding-top: 0px;
-  }
-
-  .author {
-      margin: 0;
-      font-size: 0.9em;
-      position: absolute;
-      top: -150px;
-      left: -150px;
-  }
-
-  .twitter {
-    text-align: right;
-    font-size: 0.7em;
-    position: absolute;
-    bottom: -47px;
-    right: -45px;
-  }
-
-  ul {
-      margin-top: 200px;
-      font-size: 30px;
-      text-align: right;
-      border-right: 4px solid white;
-      padding-right: 40px;
-      min-width: 310px;
-      margin-left: 50px;
-      display: inline-block;
-  }
-  q, p {
-      margin-top: 50px;
-      margin-left: 20px;
-      width: 100%;
-      font-size: 1.5em;
-      /*text-align: center;*/
-  }
-  q:after {content: ""}
-  q:before {content: ""}
-  q {
-      display: block;
-      margin-top: 140px;
-  }
-  #arrow {
-      position: absolute;
-      top: 165px;
-      left: 460px;
-      font-size: 100px;
-      color: white;
-
-  }
-  li {list-style-type: none}
-
-  pre {
-      /*font-size: 18px;*/
-      color: white;
-      margin: 2em;
-  }
-
-  .slide h1 {
-      width: 100%;
-      position: absolute;
-      padding: 0;
-      width: 100%;
-      text-align: center;
-      top: 50px;
-      z-index: 1000;
-  }
-
-  .slide h2, .slide h3 {
-      margin: 0;
-      font-size: 3vw;
-      width: 100%;
-      position: absolute;
-      padding: 0;
-      width: 100%;
-      text-align: center;
-      top: 40%;
-      z-index: 1000;
-  }
-
-  .slide h3 {
-      top: 30%;
-  }
-
-  .slide h1+video,
-  .slide video {
-      display: block;
-      width: 100%;
-      height: 100%;
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      left: 0;
-      right: 0;
-  }
-
-  h1+p, h1+pre, .text {
-      position: absolute;
-      bottom: 160px;
-  }
-
-  .bottom {
-    bottom: 50px;
-  }
-
-  .big {
-      font-size: 1.5em;
-  }
-
-  h1+pre {
-    position: absolute;
-    bottom: 10px;
-  }
-
-</style>
-$endif$
-$if(math)$
-  $math$
-$endif$
-$for(header-includes)$
-  $header-includes$
-$endfor$
-</head>
-<body>
-<!--<div class="before">
-    <img src="assets/scalaio_medium.png" />
-</div>-->
-<div class="after">
-</div>
-$if(title)$
-<section class="title-slide">
-  <h1 class="title">$title$</h1>
-  <footer>
-$for(author)$
-  <div class="author">$author$</div>
-$endfor$
-    <div class="twitter"><a href="https://twitter.com/gcouprie">@gcouprie</a></div>
-    <div class="twitter"><a href="https://twitter.com/pollux7">@pollux7</a></div>
-  </footer>
-</section>
-$endif$
-$for(include-before)$
-$include-before$
-$endfor$
-<section class="intro-slide">
-    <img src="assets/itAuto.png">
-</section>
+        <link rel="stylesheet" type="text/css" href="mystyle.css">
+    </head>
+    <body>
+        <div class="reveal">
+            <div class="slides">
+<!-- start of slides -->
 $body$
-<section class="intro-slide">
-    <img src="assets/itAuto.png">
+
+<section>
+	<h1>Rust parsers</h1>
+	<p><small>Pierre Chifflier</small></p>
 </section>
-$for(include-after)$
-$include-after$
-$endfor$
-$dzslides-core$
 
-<style>
-    .title-slide{
-      background-color: #cb243cff;
-      color: white;
-    }
-    .title-slide img {
-        opacity: 0.3;
-    }
-    .intro-slide img {
-        display: block;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-    .intro-slide {
-        background-color: #0B0629;
-    }
-    .end-slide img {
-        display: block;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-    .end-slide {
-        background-color: #0B0629;
+<section data-markdown>
+    <script type="text/template">
+## Parsers ?
+
+* Trop de vulnérabilités
+* Difficile à maintenir
+* Marre de les réécrire pour tous les projets
+    </script>
+</section>
+
+<section data-markdown>
+    <script type="text/template">
+## Langages et sécurité
+
+![Alt text](img/troll.jpg)
+
+* C: trop facile de se rater
+* Python: trop lent
+* OCaml: trop fonctionnel
+* Ruby: lol
+    </script>
+</section>
+
+
+
+<!-- Code -->
+<section data-markdown>
+    <script type="text/template">
+## Un peu de C
+
+```c
+#define MAXLEN 4096
+
+int myparse(int fd)
+{
+    uint32_t len;
+    int rc;
+    char *ptr;
+
+    rc = read_u32(fd, &len);
+    if (rc < 0) { return -1; };
+    if (len > MAXLEN) { return -1; };
+
+    ptr = malloc(len);
+    rc = read(fd, ptr, len);
+    if (rc < 0 || rc != len) { return -1; };
+
+    return try_parse(ptr,len);
+}
+```
+    </script>
+</section>
+
+<section data-markdown>
+    <script type="text/template">
+## Réécriture
+
+* trop de boulot
+* trop long
+* pas très utile (rupture de communauté)
+    </script>
+</section>
+
+
+
+<section data-markdown>
+    <script type="text/template">
+## Rust
+
+![Alt text](img/rust.svg)
+
+* Managed memory
+* No garbage collector
+* Thread-safe
+* Strong typing
+* Pattern matching
+* Zero-copy
+* Efficient C bindings
+* Minimal runtime
+    </script>
+</section>
+
+<!-- Code -->
+<section data-markdown>
+    <script type="text/template">
+## Rust
+
+Code example
+
+```rust
+fn main() {
+    // A simple integer calculator:
+    // `+` or `-` means add or subtract by 1
+    // `*` or `/` means multiply or divide by 2
+
+    let program = "+ + * - /";
+    let mut accumulator = 0;
+
+    for token in program.chars() {
+        match token {
+            '+' => accumulator += 1,
+            '-' => accumulator -= 1,
+            '*' => accumulator *= 2,
+            '/' => accumulator /= 2,
+            _ => { /* ignore everything else */ }
+        }
     }
 
-    .yolo {
-        width: 100%;
-        height: 100%;
-    }
+    println!("The program \"{}\" calculates the value {}",
+              program, accumulator);
+}
+```
+    </script>
+</section>
 
-    .yolo h2 {
-        background-color: rgba(0,0,0,0);
-    }
-    body.loaded {
-     height: 450px;
-     margin-top: -225px;
-    }
+<section data-markdown>
+    <script type="text/template">
+## Rust lifetimes
 
-    .sourceCode {
-      font-size: 20px;
-    }
+Comment (ne pas) gérer la mémoire ?
 
-    img.centered {
-      /*min-height: 400px;
-      max-height: 80%;
-        */
-      margin-left:auto;
-      margin-right: auto;
-      /*position: absolute;*/
-      left:0;
-      right:0;
-      width: 60%;
-    }
+```rust
+pub fn get_text<'a>(&'a self) -> &'a String {
+    return &self.text;
+}
 
-    table {
-      margin-top: 170px;
-      margin-left: 20px;
-      border-collapse:collapse;
-      font-size: 27px;
-    }
+* in "get_text<'a>" we are saying that there is a lifetime named "a".
+* in "(&’a self)" we are saying that "&self" has a lifetime of "a".
+* in "&’a String" we are saying that any variable that stores the
+   returned reference must have a lifetime of "a" or less.
+```
 
-    tr,td, th {
-      border: dotted 2px #FFF;
-      padding-left: 5px;
-      padding-right: 5px;
-    }
+* Les lifetimes sont résolues à la compilation
+* Elles évitent des copies inutiles
+    </script>
+</section>
 
-</style>
-</body>
+<section data-markdown>
+    <script type="text/template">
+## Zero-copy: slices
+
+Un slice est une vue sur un buffer
+
+```rust
+let buf : &[u8] = b"12345678";
+let buf2 = buf[2..];
+```
+
+* Les données ne sont pas copiées
+* Extraire un sous-slice est "gratuit"
+* On ne peut pas étendre un slice
+    </script>
+</section>
+
+
+<section data-markdown>
+    <script type="text/template">
+## Compilation Rust
+
+* Le code est découpé en *crates* (modules)
+* La compilation assemble les *crates* en un seul binaire
+  * Un exécutable
+  * Une lib statique (archive `.a`)
+  * Une lib dynamique (`.so`)
+* La chaîne de compilation est basée sur LLVM
+    </script>
+</section>
+
+<section data-markdown>
+    <script type="text/template">
+## Rust & Debug
+
+* `gdb` fonctionne
+  * Mais globalement ce n'est pas très utile
+  * Sauf pour le lien C-Rust
+* Les outils de profiling fonctionnent
+    </script>
+</section>
+
+<section data-markdown>
+    <script type="text/template">
+## Rust & Sécurité
+
+* Stack non exécutable: oui
+* ASLR: oui
+* RELRO: possible (pas par défaut)
+* Integer overflow:
+  * oui en debug
+  * non en release
+  * oui aux deux en utilisant un type `Wrapping<T>`
+    </script>
+</section>
+
+<section data-markdown>
+    <script type="text/template">
+## Objectif: durcir Suricata
+
+![Alt text](img/meerkat_helmet.jpg)
+
+* Remplacer une fonction C uniquement
+* Utiliser un langage sûr
+* Conserver les performances
+* Pouvoir ajouter des parseurs facilement
+    </script>
+</section>
+
+<section data-markdown>
+    <script type="text/template">
+## Méthodologie
+
+![Alt text](img/tenor.gif)
+
+* Écrire des parseurs indépendants
+  * En Rust 'pur' (pas de code unsafe)
+  * En utilisant `nom` (cf. plus loin)
+* Définir la communication C-Rust
+* Écrire une abstraction Suricata
+  * Isolation du code unsafe
+* Remplacement du parseur dans Suricata
+    </script>
+</section>
+
+
+
+<section data-markdown>
+    <script type="text/template">
+## Parser combinators
+
+Utiliser un langage sûr ne suffit pas:
+```rust
+ptr_ip = &s[ x .. y ];
+
+x = s.find("[").unwrap() + 1;
+y = x + 26;
+ptr_datetime = &s[ x .. y ];
+
+x = y + s[ y .. l ].find('"').unwrap() + 1;
+y = x + s[ x .. l ].find(' ').unwrap();
+ptr_method = &s[ x .. y ];
+
+x = y + 1;
+y = x + s[ x .. l ].find(' ').unwrap() - 1;
+ptr_path = &s[ x .. y ];
+
+x = y + 7;
+y = x + s[ x .. l ].find('"').unwrap();
+ptr_http_version = &s[ x .. y ];
+```
+
+* Ce code est trop fragile et ne gère pas les erreurs !
+* Ici, `unwrap()` c'est mal (risque de `panic`)
+    </script>
+</section>
+
+
+<section data-markdown>
+    <script type="text/template">
+## Parser combinators (2)
+
+```rust
+#[derive(Debug,PartialEq,Eq)]
+pub struct Header {
+  pub version: u8,
+  pub audio:   bool,
+  pub video:   bool,
+  pub offset:  u32,
+}
+
+named!(pub header<Header>,
+  do_parse!(
+             tag!("FLV") >>
+    version: be_u8       >>
+    flags:   be_u8       >>
+    offset:  be_u32      >>
+    (Header {
+        version: version,
+        audio:   flags & 4 == 4,
+        video:   flags & 1 == 1,
+        offset:  offset
+    })
+  )
+);
+```
+
+* [nom](https://github.com/Geal/nom) génère le code du parseur Rust
+* Le code inclut la gestion d'erreur
+    </script>
+</section>
+
+
+<section data-markdown>
+    <script type="text/template">
+## Parser combinators (3)
+
+```rust
+named!(pub parse_ntp_key_mac<(u32,&[u8])>,
+   complete!(pair!(be_u32,take!(16)))
+);
+
+named!(pub parse_ntp<NtpPacket>,
+   do_parse!(
+          b0: bits!(
+                  tuple!(take_bits!(u8,2),take_bits!(u8,3),take_bits!(u8,3))
+              )
+       >> st: be_u8
+       >> pl: be_i8
+       >> pr: be_i8
+       >> rde: be_u32
+       >> rdi: be_u32
+       >> rid: be_u32
+       >> tsr: be_u64
+       >> tso: be_u64
+       >> tsv: be_u64
+       >> tsx: be_u64
+       >> auth: opt!(parse_ntp_key_mac)
+
+```
+
+* Chaque parseur peut être utilisé dans un autre
+* Exemples d'utilité: TLS -> X.509 -> DER, PE -> PKCS7 -> DER, SNMP -> BER
+    </script>
+</section>
+
+
+
+
+<section data-markdown class="smaller">
+    <script type="text/template">
+## TLS & RFC
+
+- [RFC 2246](https://tools.ietf.org/html/rfc2246): The TLS Protocol Version 1.0
+- [RFC 4346](https://tools.ietf.org/html/rfc4346): The Transport Layer Security (TLS) Protocol Version 1.1
+- [RFC 4366](https://tools.ietf.org/html/rfc4366): Transport Layer Security (TLS) Extensions
+- [RFC 4492](https://tools.ietf.org/html/rfc4492): Elliptic Curve Cryptography (ECC) Cipher Suites for Transport Layer Security (TLS)
+- [RFC 4507](https://tools.ietf.org/html/rfc4507): Transport Layer Security (TLS) Session
+  Resumption without Server-Side State
+- [RFC 5077](https://tools.ietf.org/html/rfc5077): Transport Layer Security (TLS) Session
+  Resumption without Server-Side State
+- [RFC 5246](https://tools.ietf.org/html/rfc5246): The Transport Layer Security (TLS) Protocol Version 1.2
+- [RFC 5430](https://tools.ietf.org/html/rfc5430): Suite B Profile for Transport Layer Security (TLS)
+- [RFC 5746](https://tools.ietf.org/html/rfc5746): Transport Layer Security (TLS) Renegotiation Indication Extension
+- [RFC 6066](https://tools.ietf.org/html/rfc6066): Transport Layer Security (TLS) Extensions: Extension Definitions
+- [RFC 6520](https://tools.ietf.org/html/rfc6520): Transport Layer Security (TLS) and
+  Datagram Transport Layer Security (DTLS) Heartbeat Extension
+- [RFC 6961](https://tools.ietf.org/html/rfc6961): The Transport Layer Security (TLS)
+  Multiple Certificate Status Request Extension
+- [RFC 6962](https://tools.ietf.org/html/rfc6962): Certificate Transparency
+- [RFC 7027](https://tools.ietf.org/html/rfc7027): Elliptic Curve Cryptography (ECC) Brainpool Curves
+  for Transport Layer Security (TLS)
+- [RFC 7301](https://tools.ietf.org/html/rfc7301): Transport Layer Security (TLS)
+  Application-Layer Protocol Negotiation Extension
+- [RFC 7366](https://tools.ietf.org/html/rfc7366): Encrypt-then-MAC for Transport Layer Security (TLS) and
+  Datagram Transport Layer Security (DTLS)
+- [RFC 7627](https://tools.ietf.org/html/rfc7627): Transport Layer Security (TLS) Session Hash and
+  Extended Master Secret Extension
+- [RFC 7685](https://tools.ietf.org/html/rfc7685): A Transport Layer Security (TLS) ClientHello Padding Extension
+- [RFC 7919](https://tools.ietf.org/html/rfc7919): Negotiated Finite Field Diffie-Hellman Ephemeral Parameters
+  for Transport Layer Security (TLS)
+- [draft-agl-tls-nextprotoneg-03](https://tools.ietf.org/html/draft-agl-tls-nextprotoneg-03): Transport Layer Security (TLS) Next Protocol Negotiation Extension
+    </script>
+</section>
+
+
+
+
+
+
+<section data-markdown>
+    <script type="text/template">
+## TLS parser
+
+ServerHello (TLS 1.2)
+
+```rust
+pub struct TlsServerHelloContents<'a> {
+    pub version: u16,
+    pub rand_time: u32,
+    pub rand_data: &'a[u8],
+    pub session_id: Option<&'a[u8]>,
+    pub cipher: u16,
+    pub compression: u8,
+
+    pub ext: Option<&'a[u8]>,
+}
+
+pub enum TlsMessageHandshake<'a> {
+    HelloRequest,
+    ClientHello(TlsClientHelloContents<'a>),
+    ServerHello(TlsServerHelloContents<'a>),
+...
+}
+```
+    </script>
+</section>
+
+<section data-markdown>
+    <script type="text/template">
+## TLS parser
+
+ServerHello (TLS 1.2)
+
+```rust
+named!(parse_tls_handshake_msg_server_hello_tlsv12<TlsMessageHandshake>,
+    do_parse!(
+        v:         be_u16 >>
+        rand_time: be_u32 >>
+        rand_data: take!(28) >> // 28 as 32 (aligned) - 4 (time)
+        sidlen:    be_u8 >> // check <= 32, can be 0
+        error_if!(sidlen > 32, Err::Code(ErrorKind::Custom(128))) >>
+        sid:       cond!(sidlen > 0, take!(sidlen as usize)) >>
+        cipher:    be_u16 >>
+        comp:      be_u8 >>
+        ext:       opt!(complete!(length_bytes!(be_u16))) >>
+        (
+            TlsMessageHandshake::ServerHello(
+                TlsServerHelloContents::new(v,rand_time,rand_data,sid,cipher,comp,ext)
+            )
+        )
+    )
+);
+```
+    </script>
+</section>
+
+<section data-markdown>
+    <script type="text/template">
+## TLS parser
+
+ServerHello (TLS 1.3)
+
+```rust
+named!(parse_tls_handshake_msg_server_hello_tlsv13draft<TlsMessageHandshake>,
+    do_parse!(
+        v:      be_u16 >>
+        random: take!(32) >>
+        cipher: be_u16 >>
+        ext:    opt!(complete!(length_bytes!(be_u16))) >>
+        (
+            TlsMessageHandshake::ServerHelloV13(
+                TlsServerHelloV13Contents::new(v,random,cipher,ext)
+            )
+        )
+    )
+);
+```
+    </script>
+</section>
+
+<section data-markdown>
+    <script type="text/template">
+## Accessor functions
+
+```rust
+#[repr(u16)]
+pub enum TlsVersion {
+    Ssl30 = 0x0300,
+    Tls10 = 0x0301,
+    Tls11 = 0x0302,
+    Tls12 = 0x0303,
+    Tls13 = 0x0304,
+
+    Tls13Draft18 = 0x7f12,
+}
+
+impl<'a> TlsServerHelloV13Contents<'a> {
+    pub fn get_version(&self) -> Option<TlsVersion> {
+        TlsVersion::from_u16(self.version)
+    }
+}
+
+// [...]
+
+let opt_vers = server_hello.get_version();
+...
+}
+```
+    </script>
+</section>
+
+<section data-markdown>
+    <script type="text/template">
+## Unit tests
+
+La commande `cargo test` lance tous les tests unitaires
+
+```rust
+static DATA: &'static [u8] = &[
+    0x16, 0x03, 0x03, ...
+];
+
+#[test]
+fn test_tls_record_serverhello() {
+    let expected = TlsPlaintext {
+        hdr: TlsRecordHeader {
+            record_type: TlsRecordType::Handshake as u8,
+            version: 0x0303,
+            len: 59,
+        },
+        msg: vec![TlsMessage::Handshake(
+            TlsMessageHandshake::ServerHello(
+                    TlsServerHelloContents {
+                        version: 0x0303,
+                        rand_time: 0x57c457da,
+                        rand_data: &bytes[15..43],
+                        session_id: None,
+                        cipher: 0xc02f,
+                        compression: 0,
+                        ext: Some(&bytes[49..]),
+                    })
+        )]
+    };
+    assert_eq!(parse_tls_plaintext(DATA), IResult::Done(empty, expected));
+}
+```
+    </script>
+</section>
+
+<section data-markdown>
+    <script type="text/template">
+## Defragmentation
+
+```Rust
+pub fn parse_tcp_level<'b>(&mut self, i: &'b[u8]) -> u32 {
+     let mut v : Vec<u8>;
+     // Check if TCP data is being defragmented
+     let tcp_buffer = match self.tcp_buffer.len() {
+         0 => i,
+         _ => {
+             v = self.tcp_buffer.split_off(0);
+             // sanity check vector length to avoid memory exhaustion
+             // maximum length may be 2^24 (handshake message)
+             if self.tcp_buffer.len() + i.len() > 16777216 {
+                 self.events.push(TlsParserEvents::RecordOverflow as u32);
+                 return R_STATUS_EVENTS;
+             };
+             v.extend_from_slice(i);
+             v.as_slice()
+         },
+     };
+```
+    </script>
+</section>
+
+<section data-markdown>
+    <script type="text/template">
+## Machine à état
+
+```Rust
+pub enum TlsState {
+    None,
+    ClientHello,
+    AskResumeSession,
+    ResumeSession,
+    ServerHello,
+...
+}
+
+fn tls_state_transition_handshake(state: TlsState, msg: &TlsMessageHandshake)
+                            -> Result<TlsState,StateChangeError> {
+    match (state,msg) {
+        (None,        &ClientHello(ref msg)) => {
+            match msg.session_id {
+                Some(_) => Ok(AskResumeSession),
+                _       => Ok(ClientHello)
+            }
+        },
+        // Server certificate
+        (ClientHello, &ServerHello(_))       => Ok(ServerHello),
+        (ServerHello, &Certificate(_))       => Ok(Certificate),
+        // Server certificate, no client certificate requested
+        (Certificate, &ServerKeyExchange(_)) => Ok(ServerKeyExchange),
+        // [...]
+        // All other transitions are considered invalid
+        _ => Err(InvalidTransition),
+```
+    </script>
+</section>
+
+
+<section data-markdown>
+    <script type="text/template">
+## Communication C-Rust
+
+Sens C vers Rust
+```C
+extern uint32_t my_rust_function(uint32_t val);
+
+uint32_t rc = my_rust_function(42);
+
+```
+
+Sens Rust vers C
+```Rust
+extern "C" fn my_c_function(u32) -> u32;
+
+let rc = my_c_function(42);
+
+```
+    </script>
+</section>
+
+<section data-markdown>
+    <script type="text/template">
+## Modèle mémoire
+
+* Pour les structures, on peut:
+  * soit les voir comme des pointeurs opaques (simple)
+  * soit les définir en un mode compatible (rapide)
+* Compatible pour les types de base, sauf les unions
+    </script>
+</section>
+
+<section data-markdown>
+    <script type="text/template">
+## Bindings
+
+Génération automatique de bindings
+
+* [rusty-cheddar](https://github.com/Sean1708/rusty-cheddar): generate C header files from Rust
+* [rusty-binder](https://gitlab.com/rusty-binder/rusty-binder): create Rust bindings for any language
+* [corrode](https://github.com/jameysharp/corrode): C to Rust translator
+* [rust-bindgen](https://github.com/servo/rust-bindgen): generate Rust FFI bindings to C and C++ libraries
+
+* Ça marche, mais c'est mal: manque de maîtrise, code "sale", etc.
+* Convertir ne suffit pas: il faut apprendre les patterns du langage, etc.
+* Par contre, `rusty-binder` permet de générer des modules Python, etc.
+    </script>
+</section>
+
+<section data-markdown>
+    <script type="text/template">
+## Intégration
+
+![Alt text](img/suricata-c-rust.svg)
+
+* Compilation Rust: fournit une archive (`libsuricata-rust.a`) ou `.so` (au choix)
+* Compilé statiquement dans Suricata
+    </script>
+</section>
+
+<section data-markdown>
+    <script type="text/template">
+## Intégration
+
+* Suricata 'voit' le parseur Rust comme du code C
+* Rust utilise les fonctions de log, etc. de Suricata
+
+```C
+static int Nfs3TcpParseResponse(Flow *f, void *state, AppLayerParserState *pstate,
+    uint8_t *input, uint32_t input_len, void *local_data)
+{
+    uint16_t file_flags = FileFlowToFlags(f, STREAM_TOCLIENT);
+    r_nfstcp_setfileflags(1, state, file_flags);
+
+    int r = r_nfstcp_parse(1, input, input_len, state);
+    SCLogDebug("r %d", r);
+```
+    </script>
+</section>
+
+<section data-markdown>
+    <script type="text/template">
+## Tests
+
+![Alt text](img/cat_jump_fail.gif)
+
+* Unit tests
+* Pcaps
+* Fuzzing
+    </script>
+</section>
+
+
+<section data-markdown>
+    <script type="text/template">
+## Unit tests
+
+En utilisant `cargo test`
+
+```
+     Running target/debug/deps/tls_handshake-878885468bffee15
+
+running 15 tests
+test tls_handshake::test_tls_message_status_response ... ok
+test tls_handshake::test_tls_record_cert_request_ca ... ok
+test tls_handshake::test_tls_record_certificate ... ok
+test tls_handshake::test_tls_record_cert_request_noca ... ok
+test tls_handshake::test_tls_record_clientkeyexchange ... ok
+test tls_handshake::test_tls_record_clienthello ... ok
+test tls_handshake::test_tls_record_changecipherspec ... ok
+test tls_handshake::test_tls_record_invalid_messagelength ... ok
+test tls_handshake::test_tls_record_encryptedhandshake ... ok
+test tls_handshake::test_tls_record_invalid_messagelength2 ... ok
+test tls_handshake::test_tls_record_invalid_recordlength ... ok
+test tls_handshake::test_tls_record_invalid_recordlength2 ... ok
+test tls_handshake::test_tls_record_serverdone ... ok
+test tls_handshake::test_tls_record_serverhello ... ok
+test tls_handshake::test_tls_record_serverkeyexchange ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured
+
+```
+    </script>
+</section>
+
+<section data-markdown>
+    <script type="text/template">
+## Fuzzing
+
+En utilisant [https://github.com/frewsxcv/afl.rs](afl-rs)
+
+```
+       Fuzzers alive : 5
+      Total run time : 19 days, 13 hours
+         Total execs : 4054 million
+    Cumulative speed : 11987 execs/sec
+       Pending paths : 0 faves, 0 total
+  Pending per fuzzer : 0 faves, 0 total (on average)
+       Crashes found : 0 locally unique
+```
+    </script>
+</section>
+
+
+<section data-markdown>
+    <script type="text/template">
+## Job's done
+
+* Page du projet: [Rusticata](https://github.com/rusticata)
+* Parseurs publiés:
+  * TLS
+  * IPsec (IKEv2 uniquement)
+  * NTP
+  * DER
+  * SNMP (très partiel)
+  * Par Victor Julien: DNS, Quic, NFSv3 (TCP)
+* Parseurs écrits mais non publiés:
+  * PE
+  * SSH
+  * HTTP2
+    </script>
+</section>
+
+<section data-markdown>
+    <script type="text/template">
+## Feedback
+
+* Parseurs **sûrs**
+  * et **réutilisables**
+* Écriture de parseurs vraiment plus rapide
+* Plus de segfaults !
+
+<p />
+
+* Plus gros impact: humain
+  * Langage **strict**, qui force les vérifications
+* Lisibilité de Rust pas terrible (discutable)
+  * Plus une marque de manque d'habitude
+* Macros difficiles à debugger
+* Lifetimes parfois difficiles
+    </script>
+</section>
+
+<section data-markdown>
+    <script type="text/template">
+## Projets
+
+Autres projets de parseurs en Rust
+
+* [syslog-ng regex parser](https://syslog-ng.org/filling-the-parse-method/)
+* [FLV plugin for VLC](https://github.com/Geal/rust-vlc-demux)
+* [Librsvg >= 2.41.0](https://mail.gnome.org/archives/desktop-devel-list/2017-January/msg00001.html)
+* [gstreamer](https://coaxion.net/blog/2016/11/writing-gstreamer-elements-in-rust-part-3-parsing-data-from-untrusted-sources-like-its-2016/)
+    </script>
+</section>
+
+
+
+<!-- end of slides -->
+            </div>
+        </div>
+
+
+        <script src="../reveal.js/lib/js/head.min.js"></script>
+        <script src="../reveal.js/js/reveal.js"></script>
+
+        <script>
+Reveal.initialize({
+
+    width: "70%",
+    height: "100%",
+    margin: 0,
+    minScale: 1,
+    maxScale: 1,
+    slideNumber: 'c/t',
+
+
+	dependencies: [
+	{ src: '../reveal.js/lib/js/classList.js', condition: function() { return !document.body.classList; } },
+	{ src: '../reveal.js/plugin/markdown/marked.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+	{ src: '../reveal.js/plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+	{ src: '../reveal.js/plugin/highlight/highlight.js', async: true, callback: function() {
+hljs.initHighlightingOnLoad(); } },
+	]
+});
+
+Reveal.configure({ transition: 'none' });
+
+// Shows the slide number using default formatting
+Reveal.configure({ slideNumber: true });
+
+// Slide number formatting can be configured using these variables:
+//  "h.v":  horizontal . vertical slide number (default)
+//  "h/v":  horizontal / vertical slide number
+//    "c":  flattened slide number
+//  "c/t":  flattened slide number / total slides
+Reveal.configure({ slideNumber: 'c/t' });
+
+
+
+
+
+
+        </script>
+    </body>
 </html>

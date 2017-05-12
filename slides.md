@@ -9,7 +9,7 @@
 * <span class="twitter">@gcouprie</span>
 * geoffroy.couprie@clever-cloud.com
 
-<details role="note">
+<aside class="notes">
 rust main language for nearly a year now
 
 we're pushing some Rust in production now
@@ -20,7 +20,7 @@ ssh jail, proxy, git subsystems
 
 <img src="img/largeVLC.png" class="centered" />
 
-<details role="note">
+<aside class="notes">
 what I do at VideoLAN
 
 VLC handles most audio, video and streaming formats
@@ -34,7 +34,7 @@ VLC handles most audio, video and streaming formats
 - invalid memory access in RTP (CVE-2014-9630)
 - buffer overflows in MP4 demuxer (CVE-2014-9626, CVE-2014-9627, CVE-2014-9628)
 
-<details role="note">
+<aside class="notes">
 handling multiple formats is dangerous. MP4 has a lot of flaws, but not the MKV demuxer
 
 fuzzing
@@ -46,7 +46,7 @@ fuzzing
 * manual parsing
 * weird formats
 
-<details role="note">
+<aside class="notes">
 a good developer would avoid those issues
 But how can we fight the urge to write vulnerable code?
 </details>
@@ -58,7 +58,7 @@ But how can we fight the urge to write vulnerable code?
 - embeddable in C (no runtime or GC)
 - efficient, streaming
 
-<details role="note">
+<aside class="notes">
 if not for the "embeddable", I would write some haskell
 </details>
 
@@ -66,7 +66,7 @@ if not for the "embeddable", I would write some haskell
 
 <img src="img/rust-logo-512x512.png" class="centered" />
 
-<details role="note">
+<aside class="notes">
 - Rust makes memory handling easier
 - slices are really useful
 - easy FFI
@@ -81,7 +81,7 @@ if not for the "embeddable", I would write some haskell
 - parser combinators
 - macros
 
-<details role="note">
+<aside class="notes">
 I needed an easy way to write parsers
 parser combinators are simple, they're just functions
 easy to experiment
@@ -110,7 +110,7 @@ pub enum IResult<Input, Output, CustomError=u32> {
 }
 ```
 
-<details role="note">
+<aside class="notes">
 EXPLAIN
 
 Done contains output and remaining input
@@ -122,7 +122,7 @@ Done contains output and remaining input
 named!(data, terminated!( alpha, digit ));
 ```
 
-<details role="note">
+<aside class="notes">
 composition of functions
 
 take time to explain here
@@ -283,7 +283,7 @@ named!(tag_length_value,
 
 <img src="img/vlc-pipeline.png" class="centered" />
 
-<details role="note">
+<aside class="notes">
 The pipeline
 
 access -> demux (=> audio and video streams) -> decode -> filter -> (encode -> stream) | (video and audio out)
@@ -293,7 +293,7 @@ access -> demux (=> audio and video streams) -> decode -> filter -> (encode -> s
 
 <img src="img/vlc-arch.png" class="centered" />
 
-<details role="note">
+<aside class="notes">
 - libVLCCore: handles module loading, playlist, synchronization, the whole pipeline
 - libVLC: a layer above libVLCCore for external applications
 - vlc: a small executable calling libVLC
@@ -309,7 +309,7 @@ access -> demux (=> audio and video streams) -> decode -> filter -> (encode -> s
 - libVLCCore calls vlc_entry__VERSION and the module registers callbacks
 - libVLCCore calls the module when needed
 
-<details role="note">
+<aside class="notes">
 so we don't control anything from the module, we just take orders
 </details>
 
@@ -347,7 +347,7 @@ struct demux_t
     [...]
 ```
 
-<details role="note">
+<aside class="notes">
 VLC uses a sort of object-like structure, with objects sharing (via a macro) some common members
 taking some inspiration from rust-openssl and others here: put the structure definitions and function imports in a separate file, make safer wrappers above them, using Rust types
 
@@ -415,7 +415,7 @@ mod ffi {
 }
 ```
 
-<details role="note">
+<aside class="notes">
 try to add a function -> you miss a struct -> add the struct -> you need other structs, etc
 </details>
 
@@ -444,7 +444,7 @@ vlc_module_begin ()
 vlc_module_end ()
 ```
 
-<details role="note">
+<aside class="notes">
 those are macros
 </details>
 
@@ -480,7 +480,7 @@ int vlc_entry__3_0_0a (vlc_set_cb vlc_set, void *opaque) {
 }
 ```
 
-<details role="note">
+<aside class="notes">
 taking apart code loading and APIs is where you spend the most time
 </details>
 
@@ -555,7 +555,7 @@ named!(pub header<Header>,
 );
 ```
 
-<details role="note">
+<aside class="notes">
 show the do_parse syntax that could replace it
 </details>
 
@@ -613,7 +613,7 @@ extern "C" fn open(p_demux: *mut demux_t<demux_sys_t>) -> c_int {
 }
 ```
 
-<details role="note">
+<aside class="notes">
 proceed step by step. Parse a bit, then advance, log everything
 </details>
 
@@ -643,7 +643,7 @@ named!(pub tag_header<TagHeader>,
 );
 ```
 
-<details role="note">
+<aside class="notes">
 the tag header is preceded by a 4 bytes big endian uint indicating the previous tag's size
 </details>
 
@@ -668,7 +668,7 @@ extern "C" fn demux(p_demux: *mut demux_t<demux_sys_t>) -> c_int {
   }
 ```
 
-<details role="note">
+<aside class="notes">
 the to_hex method is invaluable: show a hexdump od the slice
 </details>
 
@@ -764,7 +764,7 @@ if let IResult::Done(_remaining, header) = parser::tag_header(&header[4..]) {
       } else { return -1; }
 ```
 
-<details role="note">
+<aside class="notes">
 there's a hack with va_list: https://github.com/GuillaumeGomez/va_list-rs
 
 sometimes, you can't write rust-y code, you need to adapt to the APIs
@@ -778,7 +778,7 @@ sometimes, you can't write rust-y code, you need to adapt to the APIs
 
 <img src="img/autotools.jpg" class="centered" />
 
-<details role="note">
+<aside class="notes">
 we have a VLC plugin that we can drop in the module folder, can we build it inside VLC's tree instead?
 
 VLC uses the autotools heavily, and builds the module correctly for the right platform
@@ -824,7 +824,7 @@ librust1_plugin_la_LIBADD = librust_plugin.a
 demux_LTLIBRARIES += librust1_plugin.la
 ```
 
-<details role="note">
+<aside class="notes">
 we generate an obj file and give it to the build system
 </details>
 
@@ -858,7 +858,7 @@ we generate an obj file and give it to the build system
 * twitter: <span class="twitter">@gcouprie</span>
 
 
-<details role="note">
+<aside class="notes">
 if you want some stickers...
 </details>
 

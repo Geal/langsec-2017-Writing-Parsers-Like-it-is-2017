@@ -1,10 +1,16 @@
 all: slides.html
 
 slides.html: slides.md template.html
-	pandoc -t dzslides \
+	pandoc --section-divs -t revealjs \
 		   --template template.html \
 	       -s slides.md \
 		   -o slides-light.html
+
+#slides.html: slides.md template.html
+#	pandoc -t dzslides \
+#		   --template template.html \
+#	       -s slides.md \
+#		   -o slides-light.html
 
 standalone: slides.md template.html
 	pandoc -t dzslides \
