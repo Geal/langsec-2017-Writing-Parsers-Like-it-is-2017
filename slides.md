@@ -9,12 +9,23 @@
 * <span class="twitter">@gcouprie</span>
 * geoffroy.couprie@clever-cloud.com
 
+* Head of the Detection Research lab at ANSSI
+* Security, Compilers, Languages, Free Software
+* <span class="twitter">@pollux7</span>
+* pierre.chifflier@ssi.gouv.fr
+
 <aside class="notes">
 rust main language for nearly a year now
 
 we're pushing some Rust in production now
 ssh jail, proxy, git subsystems
 </details>
+
+# Writing parsers is hard
+
+<img src="img/chart_vulns.png" height="60%" class="centered" />
+
+*(source: Google OSS-Fuzz)*
 
 # Writing new code
 
@@ -74,7 +85,14 @@ fast enough means nearly as fast as C, to convince C developers
 
 # Rust
 
-INSERT GOOD THINGS ABOUT RUST HERE
+- Managed memory (and no garbage collector)
+- Type safety
+- Thread safety
+- Efficient: native code, zero-copy
+- Easy integration with C/C++
+- Isolation of *unsafe* code
+- Minimal runtime
+- Good community
 
 # nom
 
