@@ -19,3 +19,7 @@
 .smaller {
     font-size: 24px !important;
 }
+
+.reveal h1 {
+    font-size: 2em;
+}
