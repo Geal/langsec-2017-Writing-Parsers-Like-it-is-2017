@@ -875,12 +875,12 @@ if not for the "embeddable", I would write some haskell
 
 # nom features
 
+<img src="img/colorful-ftyp.png" />
+
 - strings (&str), byte slices and bit streams parsing
 - common combinators (many, pair, peek, etc)
 - regular expressions
 - advanced error management
-
-<img src="img/colorful-ftyp.png" style="position:absolute; bottom: 100px; left: 150px" />
 
 # benefits
 
