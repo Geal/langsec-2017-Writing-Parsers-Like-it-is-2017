@@ -94,9 +94,41 @@ fast enough means nearly as fast as C, to convince C developers
 - Minimal runtime
 - Good community
 
+# Parser combinators
+
+Using a safe language is not enough:
+```rust
+ptr_ip = &s[ x .. y ];
+
+x = s.find("[").unwrap() + 1;
+y = x + 26;
+ptr_datetime = &s[ x .. y ];
+
+x = y + s[ y .. l ].find('"').unwrap() + 1;
+y = x + s[ x .. l ].find(' ').unwrap();
+ptr_method = &s[ x .. y ];
+
+x = y + 1;
+y = x + s[ x .. l ].find(' ').unwrap() - 1;
+ptr_path = &s[ x .. y ];
+
+x = y + 7;
+y = x + s[ x .. l ].find('"').unwrap();
+ptr_http_version = &s[ x .. y ];
+```
+
+- Fragile code, error-prone
+- No error handling
+- Using `unwrap()` is wrong here (risk of `panic`)
+
+<aside class="notes">
+Unreadable, unmaintainable
+</details>
+
 # nom
 
 <img src="img/cookie-monster.gif" class="centered" />
+
 
 # what is nom?
 
@@ -1065,122 +1097,35 @@ int myparse(int fd)
 }
 ```
 
-# Réécriture
+# Rust & Security
 
-* trop de boulot
-* trop long
-* pas très utile (rupture de communauté)
-
-# Rust
-
-![Alt text](img/rust.svg)
-
-* Managed memory
-* No garbage collector
-* Thread-safe
-* Strong typing
-* Pattern matching
-* Zero-copy
-* Efficient C bindings
-* Minimal runtime
-
-# Rust
-
-Code example
-
-```rust
-fn main() {
-  // A simple integer calculator:
-  // `+` or `-` means add or subtract by 1
-  // `*` or `/` means multiply or divide by 2
-
-  let program = "+ + * - /";
-  let mut accumulator = 0;
-
-  for token in program.chars() {
-    match token {
-      '+' => accumulator += 1,
-        '-' => accumulator -= 1,
-        '*' => accumulator *= 2,
-        '/' => accumulator /= 2,
-        _ => { /* ignore everything else */ }
-    }
-  }
-
-  println!("The program \"{}\" calculates the value {}",
-      program, accumulator);
-}
-```
-
-# Rust lifetimes
-
-Comment (ne pas) gérer la mémoire ?
-
-```rust
-pub fn get_text<'a>(&'a self) -> &'a String {
-return &self.text;
-}
-
-* in "get_text<'a>" we are saying that there is a lifetime named "a".
-* in "(&’a self)" we are saying that "&self" has a lifetime of "a".
-* in "&’a String" we are saying that any variable that stores the
-returned reference must have a lifetime of "a" or less.
-```
-
-* Les lifetimes sont résolues à la compilation
-* Elles évitent des copies inutiles
-
-# Zero-copy: slices
-
-Un slice est une vue sur un buffer
-
-```rust
-let buf : &[u8] = b"12345678";
-let buf2 = buf[2..];
-```
-
-* Les données ne sont pas copiées
-* Extraire un sous-slice est "gratuit"
-* On ne peut pas étendre un slice
-
-# Compilation Rust
-
-* Le code est découpé en *crates* (modules)
-* La compilation assemble les *crates* en un seul binaire
-* Un exécutable
-* Une lib statique (archive `.a`)
-* Une lib dynamique (`.so`)
-* La chaîne de compilation est basée sur LLVM
-
-# Rust & Debug
-
-* `gdb` fonctionne
-* Mais globalement ce n'est pas très utile
-* Sauf pour le lien C-Rust
-* Les outils de profiling fonctionnent
-
-# Rust & Sécurité
-
-* Stack non exécutable: oui
-* ASLR: oui
-* RELRO: possible (pas par défaut)
+* Non-executable Stack yes
+* ASLR: yes
+* RELRO: possible (not by default)
 * Integer overflow:
-* oui en debug
-* non en release
-* oui aux deux en utilisant un type `Wrapping<T>`
+    * yes (debug)
+    * no (release)
+* explicit types or operations can be used
 
-# Objectif: durcir Suricata
+# Suricata
 
-![Alt text](img/meerkat_helmet.jpg)
+<img src="img/suricata.jpg" class="centered" />
 
-* Remplacer une fonction C uniquement
-* Utiliser un langage sûr
-* Conserver les performances
-* Pouvoir ajouter des parseurs facilement
+* <a href="https://suricata-ids.org/">Suricata</a>: open source network threat detection engine
+* Implements a lot of parsers
+* Multi-threaded, fast
+
+# Hardening Suricata
+
+<img src="img/meerkat_helmet.jpg" class="centered" />
+
+* Isolate critical functions (parsing)
+* Use existing code (detection, etc.)
+* Multi-threaded, fast
 
 # Méthodologie
 
-![Alt text](img/tenor.gif)
+<img src="img/tenor.gif" class="centered" />
 
 * Écrire des parseurs indépendants
 * En Rust 'pur' (pas de code unsafe)
@@ -1189,32 +1134,6 @@ let buf2 = buf[2..];
 * Écrire une abstraction Suricata
 * Isolation du code unsafe
 * Remplacement du parseur dans Suricata
-
-# Parser combinators
-
-Utiliser un langage sûr ne suffit pas:
-```rust
-ptr_ip = &s[ x .. y ];
-
-x = s.find("[").unwrap() + 1;
-y = x + 26;
-ptr_datetime = &s[ x .. y ];
-
-x = y + s[ y .. l ].find('"').unwrap() + 1;
-y = x + s[ x .. l ].find(' ').unwrap();
-ptr_method = &s[ x .. y ];
-
-x = y + 1;
-y = x + s[ x .. l ].find(' ').unwrap() - 1;
-ptr_path = &s[ x .. y ];
-
-x = y + 7;
-y = x + s[ x .. l ].find('"').unwrap();
-ptr_http_version = &s[ x .. y ];
-```
-
-* Ce code est trop fragile et ne gère pas les erreurs !
-* Ici, `unwrap()` c'est mal (risque de `panic`)
 
 # Parser combinators (2)
 
