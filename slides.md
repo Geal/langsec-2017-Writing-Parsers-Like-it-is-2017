@@ -261,7 +261,21 @@ fn data<'a>(i: &'a [u8]) -> ::nom::IResult<&'a [u8], &[u8], u32> {
 
 # features
 
-INSERT GOOD THINGS ABOUT NOM HERE
+- strings (&str), byte slices and bit streams parsing
+- common combinators (many, pair, peek, etc)
+- regular expressions
+- advanced error management
+- zero-copy parsing
+- designed with streaming in mind
+
+# widely used
+
+existing parsers:
+
+- textual: TOML, CSV, FASTQ
+- media format:s GIF, FLAC, FLV
+- network: IP, TCP, NTP, SNMP, DNS, TLS, LDAP, HTTP...
+- languages: Rust, Lua
 
 # Integrating Rust in existing C projects
 
