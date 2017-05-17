@@ -323,15 +323,13 @@ access -> demux (=> audio and video streams) -> decode -> filter -> (encode -> s
 - with an ABI compatible DLL
 - built with autotools
 
-# Lifetime of a VLC module
+# Archtecture of a VLC module
 
-- libVLCCore looks for dynamic libraries in a specified folder
-- those dynamic libraries expose three functions:
+- a DLL exposes 3 functions:
   - vlc_entry__VERSION (example: vlc_entry__3_0_0a)
   - vlc_entry_copyright__VERSION
   - vlc_entry_license__VERSION
-- libVLCCore calls vlc_entry__VERSION and the module registers callbacks
-- libVLCCore calls the module when needed
+- the entry function registers structures and callbacks
 
 <aside class="notes">
 so we don't control anything from the module, we just take orders
@@ -453,110 +451,7 @@ pub fn stream_Read(stream: *mut stream_t, buf: &mut [u8]) -> ssize_t {
 }
 ```
 
-# preparing a VLC module in C
-
-```C
-static int  Open ( vlc_object_t * );
-static void Close( vlc_object_t * );
-
-vlc_module_begin ()
-    set_description( N_("WAV demuxer") )
-    set_category( CAT_INPUT )
-    set_subcategory( SUBCAT_INPUT_DEMUX )
-    set_capability( "demux", 142 )
-    set_callbacks( Open, Close )
-vlc_module_end ()
-```
-
-<aside class="notes">
-those are macros
-</details>
-
-# expanded
-
-```C
-int vlc_entry__3_0_0a (vlc_set_cb, void *);
-int vlc_entry__3_0_0a (vlc_set_cb vlc_set, void *opaque) {
-    module_t *module;
-    module_config_t *config = ((void*)0);
-    if (vlc_set (opaque, ((void*)0), VLC_MODULE_CREATE, &module))
-        goto error;
-    if (vlc_set (opaque, module, VLC_MODULE_NAME, ("modules/demux/wav.c")))
-        goto error;
-    if (vlc_set (opaque, module, VLC_MODULE_DESCRIPTION,
-      (const char *)(N_("WAV demuxer"))))
-        goto error;
-    vlc_set (opaque, ((void*)0), VLC_CONFIG_CREATE, (0x06), &config);
-    vlc_set (opaque, config, VLC_CONFIG_VALUE, (int64_t)(4));
-    vlc_set (opaque, ((void*)0), VLC_CONFIG_CREATE, (0x07), &config);
-    vlc_set (opaque, config, VLC_CONFIG_VALUE, (int64_t)(403));
-    if (vlc_set (opaque, module, VLC_MODULE_CAPABILITY, (const char *)("demux")) ||
-        vlc_set (opaque, module, VLC_MODULE_SCORE, (int)(142)))
-        goto error;
-    if (vlc_set (opaque, module, VLC_MODULE_CB_OPEN, Open) ||
-        vlc_set (opaque, module, VLC_MODULE_CB_CLOSE, Close))
-        goto error;
-    (void) config;
-    return 0;
-
-  error:
-    return -1;
-}
-```
-
-<aside class="notes">
-taking apart code loading and APIs is where you spend the most time
-</details>
-
-# Writing the module registration
-
-```rust
-#[allow(non_snake_case)]
-#[no_mangle]
-pub unsafe extern fn vlc_entry__3_0_0a(
-    vlc_set: unsafe extern fn(*mut c_void, *mut c_void, c_int, ...) -> c_int,
-    opaque: *mut c_void) -> c_int {
-  let module: *mut c_void = 0 as *mut c_void;
-  if vlc_set(opaque, 0 as *mut c_void, VLCModuleProperties::VLC_MODULE_CREATE as i32,
-             &module) != 0 { return -1; }
-  if vlc_set(opaque, module, VLCModuleProperties::VLC_MODULE_NAME as i32,
-             PLUGIN_NAME.as_ptr()) != 0 { return -1; }
-  let desc = b"FLV demuxer written in Rust\0";
-  if vlc_set(opaque, module, VLCModuleProperties::VLC_MODULE_DESCRIPTION as i32,
-             desc.as_ptr()) != 0 { return -1; }
-  let capability = b"demux\0";
-  if vlc_set(opaque, module, VLCModuleProperties::VLC_MODULE_CAPABILITY as i32,
-             capability.as_ptr()) != 0 { return -1; }
-  if vlc_set(opaque, module, VLCModuleProperties::VLC_MODULE_SCORE as i32, 999) != 0 {
-    return -1;
-  }
-  let p_open: extern "C" fn(*mut demux_t<demux_sys_t>) -> c_int =
-    transmute(open as extern "C" fn(_) -> c_int);
-  if vlc_set(opaque, module, VLCModuleProperties::VLC_MODULE_CB_OPEN as i32, p_open) != 0 {
-    return -1;
-  }
-  let p_close: extern "C" fn(*mut demux_t<demux_sys_t>) = transmute(close as extern "C" fn(_));
-  if vlc_set(opaque, module, VLCModuleProperties::VLC_MODULE_CB_CLOSE as i32, p_close) != 0 {
-    return -1;
-  }
-  0
-}
-```
-
-#
-
-<img class="centered" src="img/wtf.gif" style="height: 500px" />
-
-# after some macro work
-
-```rust
-vlc_module!(vlc_entry__3_0_0a,
-  set_name("inrustwetrust")
-  set_description("FLV demuxer written in Rust")
-  set_capability("demux", 999)
-  set_callbacks(open, close)
-);
-```
+# rust-bindgen automates most of it
 
 # Write a FLV parser
 
@@ -579,6 +474,36 @@ named!(pub header<Header>,
 
 <aside class="notes">
 show the do_parse syntax that could replace it
+</details>
+
+# FLV packets
+
+```rust
+named!(pub tag_header<TagHeader>,
+  chain!(
+    tag_type: switch!(be_u8,
+      8  => value!(TagType::Audio) |
+      9  => value!(TagType::Video) |
+      18 => value!(TagType::Script)
+    )                                ~
+    data_size:          be_u24       ~
+    timestamp:          be_u24       ~
+    timestamp_extended: be_u8        ~
+    stream_id:          be_u24       ,
+    || {
+      TagHeader {
+        tag_type:  tag_type,
+        data_size: data_size,
+        timestamp: ((timestamp_extended as u32) << 24) + timestamp,
+        stream_id: stream_id,
+      }
+    }
+  )
+);
+```
+
+<aside class="notes">
+the tag header is preceded by a 4 bytes big endian uint indicating the previous tag's size
 </details>
 
 # Parse the header
@@ -620,123 +545,7 @@ extern "C" fn open(p_demux: *mut demux_t<demux_sys_t>) -> c_int {
 proceed step by step. Parse a bit, then advance, log everything
 </details>
 
-# FLV packets
 
-```rust
-named!(pub tag_header<TagHeader>,
-  chain!(
-    tag_type: switch!(be_u8,
-      8  => value!(TagType::Audio) |
-      9  => value!(TagType::Video) |
-      18 => value!(TagType::Script)
-    )                                ~
-    data_size:          be_u24       ~
-    timestamp:          be_u24       ~
-    timestamp_extended: be_u8        ~
-    stream_id:          be_u24       ,
-    || {
-      TagHeader {
-        tag_type:  tag_type,
-        data_size: data_size,
-        timestamp: ((timestamp_extended as u32) << 24) + timestamp,
-        stream_id: stream_id,
-      }
-    }
-  )
-);
-```
-
-<aside class="notes">
-the tag header is preceded by a 4 bytes big endian uint indicating the previous tag's size
-</details>
-
-# Now, begin parsing
-
-```rust
-extern "C" fn demux(p_demux: *mut demux_t<demux_sys_t>) -> c_int {
-  let p_demux = unsafe { &mut (*p_demux) };
-  let p_sys = unsafe { &mut (*p_demux.p_sys) };
-
-  let mut header = [0u8; 15];
-  let sz = stream_Read(p_demux.s, &mut header);
-  if sz < 15 {
-    if sz == 4 {
-      vlc_Log!(p_demux, LogType::Info, PLUGIN_NAME, "end of stream");
-      return 0;
-    } else {
-      vlc_Log!(p_demux, LogType::Info, PLUGIN_NAME, "could not read header:\n{}",
-      &header[..sz].to_hex(8));
-      return -1;
-    }
-  }
-```
-
-<aside class="notes">
-the to_hex method is invaluable: show a hexdump od the slice
-</details>
-
-# Audio data header
-
-```rust
-//stored in 1 byte
-pub struct AudioDataHeader {
-  pub sound_format: SoundFormat,
-  pub sound_rate:   SoundRate,
-  pub sound_size:   SoundSize,
-  pub sound_type:   SoundType,
-}
-```
-
-# Audio data header parsing
-
-```rust
-pub fn audio_data_header(input: &[u8]) -> IResult<&[u8], AudioDataHeader> {
-  if input.len() < 1 {
-    return IResult::Incomplete(Needed::Size(1));
-  }
-
-  let (remaining, (sformat, srate, ssize, stype)) = try_parse!(input, bits!(
-    tuple!(
-      switch!(take_bits!(u8, 4),
-        0  => value!(SoundFormat::PCM_BE)
-      | 1  => value!(SoundFormat::ADPCM)
-      | 2  => value!(SoundFormat::MP3)
-      | 3  => value!(SoundFormat::PCM_LE)
-      | 4  => value!(SoundFormat::NELLYMOSER_16KHZ_MONO)
-      | 5  => value!(SoundFormat::NELLYMOSER_8KHZ_MONO)
-      | 6  => value!(SoundFormat::NELLYMOSER)
-      | 7  => value!(SoundFormat::PCM_ALAW)
-      | 8  => value!(SoundFormat::PCM_ULAW)
-      | 10 => value!(SoundFormat::AAC)
-      | 11 => value!(SoundFormat::SPEEX)
-      | 14 => value!(SoundFormat::MP3_8KHZ)
-      | 15 => value!(SoundFormat::DEVICE_SPECIFIC)
-      ),
-      switch!(take_bits!(u8, 2),
-        0 => value!(SoundRate::_5_5KHZ)
-      | 1 => value!(SoundRate::_11KHZ)
-      | 2 => value!(SoundRate::_22KHZ)
-      | 3 => value!(SoundRate::_44KHZ)
-      ),
-      switch!(take_bits!(u8, 1),
-        0 => value!(SoundSize::Snd8bit)
-      | 1 => value!(SoundSize::Snd16bit)
-      ),
-      switch!(take_bits!(u8, 1),
-        0 => value!(SoundType::SndMono)
-      | 1 => value!(SoundType::SndStereo)
-      )
-    )
-  ));
-
-  IResult::Done(&input[1..], AudioDataHeader {
-    sound_format: sformat,
-    sound_rate:   srate,
-    sound_size:   ssize,
-    sound_type:   stype,
-  })
-}
-```
 # Check the header (audio case)
 
 ```rust
@@ -771,8 +580,6 @@ there's a hack with va_list: https://github.com/GuillaumeGomez/va_list-rs
 
 sometimes, you can't write rust-y code, you need to adapt to the APIs
 </details>
-
-# Demo
 
 # Now, the build system
 
