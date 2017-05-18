@@ -581,76 +581,11 @@ there's a hack with va_list: https://github.com/GuillaumeGomez/va_list-rs
 sometimes, you can't write rust-y code, you need to adapt to the APIs
 </details>
 
-# Now, the build system
+# Integration with the build system
 
-<img src="img/autotools.jpg" class="centered" />
-
-<aside class="notes">
-we have a VLC plugin that we can drop in the module folder, can we build it inside VLC's tree instead?
-
-VLC uses the autotools heavily, and builds the module correctly for the right platform
-automatically (with libtool, etc)
-</details>
-
-# Integrating with autotools
-
-- rustc knows how to make libraries
-- libtool knows how to make libraries
-- let's make an object file and give it to libtool
-
-# First, check for cargo and Rust
-
-```Makefile
-AC_ARG_ENABLE(cargo,
-    [AS_HELP_STRING([--enable-cargo],
-      [Enable rust-based plugins that require cargo to build (default disabled)])])
-
-AS_IF([test "${enable_cargo}" = "yes"], [
-  AC_CHECK_PROG(CARGO, [cargo], [yes], [no])
-  AC_CHECK_PROG(RUSTC, [rustc], [yes], [no])
-
-  AS_IF([test "$CARGO" != "yes" -o "$RUSTC" != "yes"], [
-    AC_MSG_FAILURE("Rust based plugins cannot be built $CARGO $RUSTC")
-  ])
-  VLC_ADD_PLUGIN([rust_plugin])
-])
-```
-
-# Declaring and building a Rust module
-
-```Makefile
-librust1_plugin_la_SOURCES = ""
-
-librust_plugin.a: demux/rust/src/lib.rs
-	cd $(srcdir)/demux/rust
-	CARGO_TARGET_DIR="$(abs_builddir)/.libs/" cargo build -v
-	mv $(abs_builddir)/.libs/debug/$@ $@
-
-rust_plugin.o: demux/rust/src/lib.rs
-	cd $(srcdir)/demux/rust
-	CARGO_TARGET_DIR="$(abs_builddir)/.libs/" cargo rustc -- --emit obj
-	mv $(abs_builddir)/.libs/debug/$@ $@
-
-am_librust1_plugin_la_OBJECTS = rust_plugin.o
-librust1_plugin_la_LIBADD = librust_plugin.a
-
-demux_LTLIBRARIES += librust1_plugin.la
-```
-
-<aside class="notes">
-we generate an obj file and give it to the build system
-</details>
-
-
-
-
-
-
-
-
-
-
-
+- autotools will make the final library
+- use the Rust compiler to generate a .o
+- libtool will handle linking
 
 
 
