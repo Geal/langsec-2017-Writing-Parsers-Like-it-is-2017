@@ -1241,44 +1241,57 @@ Pending per fuzzer : 0 faves, 0 total (on average)
 Crashes found : 0 locally unique
 ```
 
-# Job's done
+# Project status
 
-* Page du projet: [Rusticata](https://github.com/rusticata)
-* Parseurs publiés:
-* TLS
-* IPsec (IKEv2 uniquement)
-* NTP
-* DER
-* SNMP (très partiel)
-* Par Victor Julien: DNS, Quic, NFSv3 (TCP)
-* Parseurs écrits mais non publiés:
-* PE
-* SSH
-* HTTP2
+- Project site: [Rusticata](https://github.com/rusticata)
+- Published:
+    - TLS
+    - IPsec (IKEv2 only)
+    - NTP
+    - DER, X.509
+    - Radius (partial)
+    - SNMP (partial)
+- Merge upstream under discussion (4.0 ?)
+- Added by Suricata: DNS, Quic, NFSv3 (TCP)
+- Other parsers (in progress):
+    - PE
+    - SSH
+    - HTTP/2
+
+# Results
+
+- **Safe** parsers
+- and **reusable**
+- Writing parsers is faster
+- No more segfaults!
 
 # Feedback
 
-* Parseurs **sûrs**
-* et **réutilisables**
-* Écriture de parseurs vraiment plus rapide
-* Plus de segfaults !
-
-<p />
-
-* Plus gros impact: humain
-* Langage **strict**, qui force les vérifications
-* Lisibilité de Rust pas terrible (discutable)
-* Plus une marque de manque d'habitude
-* Macros difficiles à debugger
-* Lifetimes parfois difficiles
+- Biggest difficulty: not technical
+- **Strict** language, enforcing checks
+- Rust language
+    - Sometimes hard to read
+    - Macros are hard to debug
+    - Lifetimes can be difficult
 
 # Projets
 
-Autres projets de parseurs en Rust
+Similar efforts:
 
 * [syslog-ng regex parser](https://syslog-ng.org/filling-the-parse-method/)
 * [FLV plugin for VLC](https://github.com/Geal/rust-vlc-demux)
 * [Librsvg >= 2.41.0](https://mail.gnome.org/archives/desktop-devel-list/2017-January/msg00001.html)
 * [gstreamer](https://coaxion.net/blog/2016/11/writing-gstreamer-elements-in-rust-part-3-parsing-data-from-untrusted-sources-like-its-2016/)
 
+# Conclusion
+
+- It's 2017, it's time to do better
+- We need reference parsers
+    - Secure
+    - For use in multiple projects
+- Goal: build a community
+
+<aside class="notes">
+We need you!
+</details>
 
