@@ -546,41 +546,6 @@ proceed step by step. Parse a bit, then advance, log everything
 </details>
 
 
-# Check the header (audio case)
-
-```rust
-if let IResult::Done(_remaining, header) = parser::tag_header(&header[4..]) {
-  match header.tag_type {
-    TagType::Audio => {
-      let mut a_header = [0u8; 1];
-      if stream_Read(p_demux.s, &mut a_header) < 1 { return -1; }
-
-      if let IResult::Done(_, audio_header) = parser::audio_data_header(&a_header) {
-        // <initialize demuxer with audio format info>
-
-        let p_block: *mut block_t = stream_Block(p_demux.s, (header.data_size - 1) as size_t);
-        if p_block == 0 as *mut block_t { return -1; }
-        let p_block = unsafe { &mut(*p_block) };
-
-        let out_ref = p_demux.out;
-        unsafe {
-          to_va_list!(move |v: rs_va_list::va_list| {
-            let pf_control: fn(*mut c_void, c_int, rs_va_list::va_list) =
-              transmute((*out_ref).pf_control);
-            pf_control(out_ref as *mut c_void, ES_OUT_SET_PCR, v);
-          }, p_block.i_pts);
-        }
-        es_out_Send(p_demux.out, p_sys.audio_es_id, p_block);
-        return 1;
-      } else { return -1; }
-```
-
-<aside class="notes">
-there's a hack with va_list: https://github.com/GuillaumeGomez/va_list-rs
-
-sometimes, you can't write rust-y code, you need to adapt to the APIs
-</details>
-
 # Integration with the build system
 
 - autotools will make the final library
