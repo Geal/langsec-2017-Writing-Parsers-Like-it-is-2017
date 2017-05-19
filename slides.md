@@ -64,6 +64,7 @@ Surgically replacing the unsafe parts of the code
 
 # Shopping list
 
+- memory safety
 - a language that can call C (good FFI support)
 - a language that can be called by C
 - if possible, no garbage collection
@@ -780,6 +781,11 @@ if you want some stickers...
 
 # Thanks!
 
+
+
+
+
+
 # Parsers ?
 
 * Trop de vulnérabilités
@@ -795,39 +801,6 @@ if you want some stickers...
 * OCaml: trop fonctionnel
 * Ruby: lol
 
-# Un peu de C
-
-```c
-#define MAXLEN 4096
-
-int myparse(int fd)
-{
-  uint32_t len;
-  int rc;
-  char *ptr;
-
-  rc = read_u32(fd, &len);
-  if (rc < 0) { return -1; };
-  if (len > MAXLEN) { return -1; };
-
-  ptr = malloc(len);
-  rc = read(fd, ptr, len);
-  if (rc < 0 || rc != len) { return -1; };
-
-  return try_parse(ptr,len);
-}
-```
-
-# Rust & Security
-
-* Non-executable Stack yes
-* ASLR: yes
-* RELRO: possible (not by default)
-* Integer overflow:
-    * yes (debug)
-    * no (release)
-* explicit types or operations can be used
-
 # Suricata
 
 <img src="img/suricata.jpg" class="centered" />
@@ -842,19 +815,20 @@ int myparse(int fd)
 
 * Isolate critical functions (parsing)
 * Use existing code (detection, etc.)
-* Multi-threaded, fast
+* Keep performances and thread-safety
 
-# Méthodologie
+# Methodology
 
 <img src="img/tenor.gif" class="centered" />
 
-* Écrire des parseurs indépendants
-* En Rust 'pur' (pas de code unsafe)
-* En utilisant `nom` (cf. plus loin)
-* Définir la communication C-Rust
-* Écrire une abstraction Suricata
-* Isolation du code unsafe
-* Remplacement du parseur dans Suricata
+* Write independant parsers
+    * In 'pure' Rust (no 'unsafe' code)
+    * Using nom
+* Test & fuzz
+* Define the C-Rust communication
+* Write the abstraction layer
+    * Isolating unsafe code
+* Replace the parser in the project
 
 # Parser combinators (2)
 
@@ -912,8 +886,8 @@ named!(pub parse_ntp_key_mac<(u32,&[u8])>,
 
 ```
 
-* Chaque parseur peut être utilisé dans un autre
-* Exemples d'utilité: TLS -> X.509 -> DER, PE -> PKCS7 -> DER, SNMP -> BER
+* Parsers can be combined
+* Example: TLS -> X.509 -> DER, PE -> PKCS7 -> DER, SNMP -> BER
 
 # TLS & RFC
 
@@ -1043,9 +1017,133 @@ let opt_vers = server_hello.get_version();
 }
 ```
 
+<aside class="notes">
+In some cases, a parser should accept an invalid input (for ex. an invalid enum value) but mark it as invalid.
+</details>
+
+# Defragmentation
+
+```Rust
+pub fn parse_tcp_level<'b>(&mut self, i: &'b[u8]) -> u32 {
+  let mut v : Vec<u8>;
+  // Check if TCP data is being defragmented
+  let tcp_buffer = match self.tcp_buffer.len() {
+    0 => i,
+      _ => {
+        v = self.tcp_buffer.split_off(0);
+        // sanity check vector length to avoid memory exhaustion
+        // maximum length may be 2^24 (handshake message)
+        if self.tcp_buffer.len() + i.len() > 16777216 {
+          self.events.push(TlsParserEvents::RecordOverflow as u32);
+          return R_STATUS_EVENTS;
+        };
+        v.extend_from_slice(i);
+        v.as_slice()
+      },
+  };
+```
+
+# TLS state machine
+
+```Rust
+pub enum TlsState {
+  None,
+  ClientHello,
+  AskResumeSession,
+  ResumeSession,
+  ServerHello,
+  ...
+}
+
+fn tls_state_transition_handshake(state: TlsState, msg: &TlsMessageHandshake)
+  -> Result<TlsState,StateChangeError> {
+    match (state,msg) {
+      (None,        &ClientHello(ref msg)) => {
+        match msg.session_id {
+          Some(_) => Ok(AskResumeSession),
+            _       => Ok(ClientHello)
+        }
+      },
+        // Server certificate
+        (ClientHello, &ServerHello(_))       => Ok(ServerHello),
+        (ServerHello, &Certificate(_))       => Ok(Certificate),
+        // Server certificate, no client certificate requested
+        (Certificate, &ServerKeyExchange(_)) => Ok(ServerKeyExchange),
+        // [...]
+        // All other transitions are considered invalid
+        _ => Err(InvalidTransition),
+```
+
+# C-Rust Communication
+
+C to Rust
+```C
+extern uint32_t my_rust_function(uint32_t val);
+
+uint32_t rc = my_rust_function(42);
+
+```
+
+Rust to C
+```Rust
+extern "C" fn my_c_function(u32) -> u32;
+
+let rc = my_c_function(42);
+
+```
+
+# Memory representation
+
+* Structures can be shared with C:
+    * either as opaque pointers (simple)
+    * or as compatible memory representation
+* Can be used for all base types except unions
+
+# Bindings
+
+- Automatic generation of bindings
+    * [rusty-cheddar](https://github.com/Sean1708/rusty-cheddar): generate C header files from Rust
+    * [rusty-binder](https://gitlab.com/rusty-binder/rusty-binder): create Rust bindings for any language
+    * [corrode](https://github.com/jameysharp/corrode): C to Rust translator
+    * [rust-bindgen](https://github.com/servo/rust-bindgen): generate Rust FFI bindings to C and C++ libraries
+
+- Easy to use
+- Converting is not enough: it's better to learn the language patterns
+
+# Integration
+
+<img src="img/suricata-c-rust.svg" height="50%" class="centered" />
+
+* Rust code: builds an archive (`libsuricata-rust.a`) or `.so`
+* Linked with Suricata's executable
+
+# Integration
+
+* Suricata 'sees' the Rust parser as a set of C functions
+* Rust code uses the helper functions (log, files, etc.) of Suricata
+
+```C
+static int Nfs3TcpParseResponse(Flow *f, void *state, AppLayerParserState *pstate,
+    uint8_t *input, uint32_t input_len, void *local_data)
+{
+  uint16_t file_flags = FileFlowToFlags(f, STREAM_TOCLIENT);
+  r_nfstcp_setfileflags(1, state, file_flags);
+
+  int r = r_nfstcp_parse(1, input, input_len, state);
+  SCLogDebug("r %d", r);
+```
+
+# Tests
+
+<img src="img/cat_jump_fail.gif" class="centered" />
+
+* Unit tests
+* Pcaps
+* Fuzzing
+
 # Unit tests
 
-La commande `cargo test` lance tous les tests unitaires
+First type of tests: unit tests (`cargo test`)
 
 ```rust
 static DATA: &'static [u8] = &[
@@ -1077,131 +1175,7 @@ fn test_tls_record_serverhello() {
 }
 ```
 
-# Defragmentation
-
-```Rust
-pub fn parse_tcp_level<'b>(&mut self, i: &'b[u8]) -> u32 {
-  let mut v : Vec<u8>;
-  // Check if TCP data is being defragmented
-  let tcp_buffer = match self.tcp_buffer.len() {
-    0 => i,
-      _ => {
-        v = self.tcp_buffer.split_off(0);
-        // sanity check vector length to avoid memory exhaustion
-        // maximum length may be 2^24 (handshake message)
-        if self.tcp_buffer.len() + i.len() > 16777216 {
-          self.events.push(TlsParserEvents::RecordOverflow as u32);
-          return R_STATUS_EVENTS;
-        };
-        v.extend_from_slice(i);
-        v.as_slice()
-      },
-  };
-```
-
-# Machine à état
-
-```Rust
-pub enum TlsState {
-  None,
-  ClientHello,
-  AskResumeSession,
-  ResumeSession,
-  ServerHello,
-  ...
-}
-
-fn tls_state_transition_handshake(state: TlsState, msg: &TlsMessageHandshake)
-  -> Result<TlsState,StateChangeError> {
-    match (state,msg) {
-      (None,        &ClientHello(ref msg)) => {
-        match msg.session_id {
-          Some(_) => Ok(AskResumeSession),
-            _       => Ok(ClientHello)
-        }
-      },
-        // Server certificate
-        (ClientHello, &ServerHello(_))       => Ok(ServerHello),
-        (ServerHello, &Certificate(_))       => Ok(Certificate),
-        // Server certificate, no client certificate requested
-        (Certificate, &ServerKeyExchange(_)) => Ok(ServerKeyExchange),
-        // [...]
-        // All other transitions are considered invalid
-        _ => Err(InvalidTransition),
-```
-
-# Communication C-Rust
-
-Sens C vers Rust
-```C
-extern uint32_t my_rust_function(uint32_t val);
-
-uint32_t rc = my_rust_function(42);
-
-```
-
-Sens Rust vers C
-```Rust
-extern "C" fn my_c_function(u32) -> u32;
-
-let rc = my_c_function(42);
-
-```
-
-# Modèle mémoire
-
-* Pour les structures, on peut:
-* soit les voir comme des pointeurs opaques (simple)
-* soit les définir en un mode compatible (rapide)
-* Compatible pour les types de base, sauf les unions
-
-# Bindings
-
-Génération automatique de bindings
-
-* [rusty-cheddar](https://github.com/Sean1708/rusty-cheddar): generate C header files from Rust
-* [rusty-binder](https://gitlab.com/rusty-binder/rusty-binder): create Rust bindings for any language
-* [corrode](https://github.com/jameysharp/corrode): C to Rust translator
-* [rust-bindgen](https://github.com/servo/rust-bindgen): generate Rust FFI bindings to C and C++ libraries
-
-* Ça marche, mais c'est mal: manque de maîtrise, code "sale", etc.
-* Convertir ne suffit pas: il faut apprendre les patterns du langage, etc.
-* Par contre, `rusty-binder` permet de générer des modules Python, etc.
-
-# Intégration
-
-![Alt text](img/suricata-c-rust.svg)
-
-* Compilation Rust: fournit une archive (`libsuricata-rust.a`) ou `.so` (au choix)
-* Compilé statiquement dans Suricata
-
-# Intégration
-
-* Suricata 'voit' le parseur Rust comme du code C
-* Rust utilise les fonctions de log, etc. de Suricata
-
-```C
-static int Nfs3TcpParseResponse(Flow *f, void *state, AppLayerParserState *pstate,
-    uint8_t *input, uint32_t input_len, void *local_data)
-{
-  uint16_t file_flags = FileFlowToFlags(f, STREAM_TOCLIENT);
-  r_nfstcp_setfileflags(1, state, file_flags);
-
-  int r = r_nfstcp_parse(1, input, input_len, state);
-  SCLogDebug("r %d", r);
-```
-
-# Tests
-
-![Alt text](img/cat_jump_fail.gif)
-
-* Unit tests
-* Pcaps
-* Fuzzing
-
 # Unit tests
-
-En utilisant `cargo test`
 
 ```
 Running target/debug/deps/tls_handshake-878885468bffee15
@@ -1229,7 +1203,7 @@ test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured
 
 # Fuzzing
 
-En utilisant [https://github.com/frewsxcv/afl.rs](afl-rs)
+Using [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) or [afl-rs](https://github.com/frewsxcv/afl.rs)
 
 ```
 Fuzzers alive : 5
@@ -1240,6 +1214,20 @@ Pending paths : 0 faves, 0 total
 Pending per fuzzer : 0 faves, 0 total (on average)
 Crashes found : 0 locally unique
 ```
+
+# Rust & Security
+
+* Non-executable Stack yes
+* ASLR: yes
+* RELRO: possible (not by default)
+* Integer overflow:
+    * yes (debug)
+    * no (release)
+* explicit types or operations can be used
+
+
+# Performances
+
 
 # Project status
 
@@ -1286,6 +1274,8 @@ Similar efforts:
 # Conclusion
 
 - It's 2017, it's time to do better
+    - C is not good for parsers
+    - Replacing critical functions is pragmatic and easy
 - We need reference parsers
     - Secure
     - For use in multiple projects
