@@ -1019,6 +1019,10 @@ pub fn parse_tcp_level<'b>(&mut self, i: &'b[u8]) -> u32 {
 
 <img src="img/tls-state-machine.jpg" class="centered" />
 
+<aside class="notes">
+Ureadable slide, just to show the complexity of the TLS State Machine.
+</details>
+
 # TLS state machine
 
 ```Rust
@@ -1068,6 +1072,10 @@ fn tls_state_transition_handshake(state: TlsState, msg: &TlsMessageHandshake)
 
 - Easy to use
 - Converting is not enough: it's better to learn the language patterns
+
+<aside class="notes">
+XXX remove that slide ?
+</details>
 
 # Integration
 
