@@ -1,3 +1,7 @@
+.reveal {
+  font-size: 36px;
+}
+
 .reveal .slides {
   height: 100%;
   top: 0;
@@ -25,10 +29,15 @@
 }
 
 .reveal h1 {
-    font-size: 2em;
+    font-size: 60px;
 }
 
 .reveal section img {
   border: 0;
   box-shadow: none;
 }
+
+.smaller {
+  font-size: 24px;
+}
+

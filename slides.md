@@ -112,10 +112,6 @@ ptr_method = &s[ x .. y ];
 x = y + 1;
 y = x + s[ x .. l ].find(' ').unwrap() - 1;
 ptr_path = &s[ x .. y ];
-
-x = y + 7;
-y = x + s[ x .. l ].find('"').unwrap();
-ptr_http_version = &s[ x .. y ];
 ```
 
 - Fragile code, error-prone
@@ -785,21 +781,20 @@ if you want some stickers...
 
 
 
+# Methodology
 
-# Parsers ?
+<img src="img/tenor.gif" width="30%" style="float: right" />
 
-* Trop de vulnérabilités
-* Difficile à maintenir
-* Marre de les réécrire pour tous les projets
+* Choose candidate program and parsers
+* Write independant parsers
+    * In 'pure' Rust (no 'unsafe' code)
+    * Using nom
+* Test & fuzz
+* Define the C-Rust communication
+* Write the abstraction layer
+    * Isolating unsafe code
+* Replace the parser in the project
 
-# Langages et sécurité
-
-![Alt text](img/troll.jpg)
-
-* C: trop facile de se rater
-* Python: trop lent
-* OCaml: trop fonctionnel
-* Ruby: lol
 
 # Suricata
 
@@ -817,79 +812,20 @@ if you want some stickers...
 * Use existing code (detection, etc.)
 * Keep performances and thread-safety
 
-# Methodology
+# Candidate protocol: TLS
 
-<img src="img/tenor.gif" class="centered" />
+- Important protocols
+- Many implementation errors
+- New 'parser writing' iteration
 
-* Write independant parsers
-    * In 'pure' Rust (no 'unsafe' code)
-    * Using nom
-* Test & fuzz
-* Define the C-Rust communication
-* Write the abstraction layer
-    * Isolating unsafe code
-* Replace the parser in the project
+<aside class="notes">
+- I wrote the previous TLS parser
+- Writing a parser helps writing the new one
+</details>
 
-# Parser combinators (2)
+# Reading RFCs
 
-```rust
-#[derive(Debug,PartialEq,Eq)]
-pub struct Header {
-  pub version: u8,
-  pub audio:   bool,
-  pub video:   bool,
-  pub offset:  u32,
-}
-
-named!(pub header<Header>,
-  do_parse!(
-    tag!("FLV") >>
-    version: be_u8       >>
-    flags:   be_u8       >>
-    offset:  be_u32      >>
-    (Header {
-      version: version,
-      audio:   flags & 4 == 4,
-      video:   flags & 1 == 1,
-      offset:  offset
-    })
-  )
-);
-```
-
-* [nom](https://github.com/Geal/nom) génère le code du parseur Rust
-* Le code inclut la gestion d'erreur
-
-# Parser combinators (3)
-
-```rust
-named!(pub parse_ntp_key_mac<(u32,&[u8])>,
-    complete!(pair!(be_u32,take!(16)))
-    );
-
-  named!(pub parse_ntp<NtpPacket>,
-      do_parse!(
-        b0: bits!(
-          tuple!(take_bits!(u8,2),take_bits!(u8,3),take_bits!(u8,3))
-          )
-        >> st: be_u8
-        >> pl: be_i8
-        >> pr: be_i8
-        >> rde: be_u32
-        >> rdi: be_u32
-        >> rid: be_u32
-        >> tsr: be_u64
-        >> tso: be_u64
-        >> tsv: be_u64
-        >> tsx: be_u64
-        >> auth: opt!(parse_ntp_key_mac)
-
-```
-
-* Parsers can be combined
-* Example: TLS -> X.509 -> DER, PE -> PKCS7 -> DER, SNMP -> BER
-
-# TLS & RFC
+<div class="smaller">
 
 - [RFC 2246](https://tools.ietf.org/html/rfc2246): The TLS Protocol Version 1.0
 - [RFC 4346](https://tools.ietf.org/html/rfc4346): The Transport Layer Security (TLS) Protocol Version 1.1
@@ -921,7 +857,31 @@ Extended Master Secret Extension
 for Transport Layer Security (TLS)
 - [draft-agl-tls-nextprotoneg-03](https://tools.ietf.org/html/draft-agl-tls-nextprotoneg-03): Transport Layer Security (TLS) Next Protocol Negotiation Extension
 
-# TLS parser
+</div>
+
+# Specifications
+
+```
+struct {
+       ProtocolVersion server_version;
+       Random random;
+       SessionID session_id;
+       CipherSuite cipher_suite;
+       CompressionMethod compression_method;
+       select (extensions_present) {
+           case false:
+               struct {};
+           case true:
+               Extension extensions<0..2^16-1>;
+       };
+   } ServerHello;
+```
+
+# Method
+
+Define structure
+
+# ServerHello
 
 ServerHello (TLS 1.2)
 
@@ -944,6 +904,10 @@ pub enum TlsMessageHandshake<'a> {
   ...
 }
 ```
+
+# Method
+
+Write a parser reading the fields as bytes
 
 # TLS parser
 
@@ -970,25 +934,33 @@ named!(parse_tls_handshake_msg_server_hello_tlsv12<TlsMessageHandshake>,
 );
 ```
 
-# TLS parser
+# Method
 
-ServerHello (TLS 1.3)
+Refine fields, writing new parsers
+
+# ServerHello (refined)
 
 ```rust
-named!(parse_tls_handshake_msg_server_hello_tlsv13draft<TlsMessageHandshake>,
-  do_parse!(
-    v:      be_u16 >>
-    random: take!(32) >>
-    cipher: be_u16 >>
-    ext:    opt!(complete!(length_bytes!(be_u16))) >>
-    (
-      TlsMessageHandshake::ServerHelloV13(
-        TlsServerHelloV13Contents::new(v,random,cipher,ext)
-      )
-    )
-  )
-);
+pub enum TlsExtension{
+  SNI(Vec<(u8,&'a[u8])>),
+  // ...
+};
+
+pub struct TlsServerHelloContents<'a> {
+  pub version: u16,
+  // ...
+
+  pub ext: Option< TlsExtension<'a> >,
+}
 ```
+
+# Good parsers
+
+- Making parsers reusable
+    - do not mix parsing and interpreting data
+    - do not mix parsing and raising alerts
+- Be strict in what you generate, laxist in what you accept
+
 
 # Accessor functions
 
@@ -1284,4 +1256,23 @@ Similar efforts:
 <aside class="notes">
 We need you!
 </details>
+
+
+
+
+
+# Standalone parsers
+
+- Making parsers reusable
+    - do not mix parsing and interpreting data
+    - do not mix parsing and raising alerts
+
+# Parser combinators
+
+- Network protocols are hard
+    - Complex formats
+    - Stateful parsing
+    - Many interlaced layers, can be combined
+- Reusing parsers is required
+    - Example: TLS -> X.509 -> DER, PE -> PKCS7 -> DER, SNMP -> BER
 
