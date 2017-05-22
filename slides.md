@@ -1017,6 +1017,10 @@ pub fn parse_tcp_level<'b>(&mut self, i: &'b[u8]) -> u32 {
 
 # TLS state machine
 
+<img src="img/tls-state-machine.jpg" class="centered" />
+
+# TLS state machine
+
 ```Rust
 pub enum TlsState {
   None,
@@ -1046,30 +1050,13 @@ fn tls_state_transition_handshake(state: TlsState, msg: &TlsMessageHandshake)
         _ => Err(InvalidTransition),
 ```
 
-# C-Rust Communication
-
-C to Rust
-```C
-extern uint32_t my_rust_function(uint32_t val);
-
-uint32_t rc = my_rust_function(42);
-
-```
-
-Rust to C
-```Rust
-extern "C" fn my_c_function(u32) -> u32;
-
-let rc = my_c_function(42);
-
-```
-
-# Memory representation
+# Sharing structures
 
 * Structures can be shared with C:
     * either as opaque pointers (simple)
     * or as compatible memory representation
 * Can be used for all base types except unions
+* Compromise between speed and design
 
 # Bindings
 
@@ -1104,18 +1091,31 @@ static int Nfs3TcpParseResponse(Flow *f, void *state, AppLayerParserState *pstat
   int r = r_nfstcp_parse(1, input, input_len, state);
   SCLogDebug("r %d", r);
 ```
-
 # Tests
+
+<div class="smaller">
 
 <img src="img/cat_jump_fail.gif" class="centered" />
 
-* Unit tests
-* Pcaps
-* Fuzzing
+"Because testing is doubting"
+</div>
+
+# Tests
+
+Replacing code requires to prove equivalence
+
+- Performance: benchmarks
+- Functionnalities: unit tests
+
+
+# Performance
+
+- Often the first question you get
+- Required to replace code
 
 # Unit tests
 
-First type of tests: unit tests (`cargo test`)
+Encouraged by the language (`cargo test`)
 
 ```rust
 static DATA: &'static [u8] = &[
@@ -1157,20 +1157,35 @@ test tls_handshake::test_tls_message_status_response ... ok
 test tls_handshake::test_tls_record_cert_request_ca ... ok
 test tls_handshake::test_tls_record_certificate ... ok
 test tls_handshake::test_tls_record_cert_request_noca ... ok
-test tls_handshake::test_tls_record_clientkeyexchange ... ok
-test tls_handshake::test_tls_record_clienthello ... ok
-test tls_handshake::test_tls_record_changecipherspec ... ok
-test tls_handshake::test_tls_record_invalid_messagelength ... ok
-test tls_handshake::test_tls_record_encryptedhandshake ... ok
-test tls_handshake::test_tls_record_invalid_messagelength2 ... ok
-test tls_handshake::test_tls_record_invalid_recordlength ... ok
-test tls_handshake::test_tls_record_invalid_recordlength2 ... ok
-test tls_handshake::test_tls_record_serverdone ... ok
-test tls_handshake::test_tls_record_serverhello ... ok
-test tls_handshake::test_tls_record_serverkeyexchange ... ok
+...
 
 test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured
 ```
+
+Tip: use the project's own tests (and test data)
+
+
+# Checking Security
+
+- manual checks
+    - LLVM IR
+    - assembly
+- fuzzing
+    - use "smart" (instrumented) fuzzing
+    - try to explore all possible paths
+    - very useful to catch unexpected `panic`
+
+
+# Rust & Security
+
+* Checks of integer accesses, buffer overflow: yes
+* Non-executable Stack yes
+* ASLR: yes
+* RELRO: possible (not by default)
+* Integer overflow:
+    * yes (debug)
+    * no (release)
+* explicit types or operations can be used
 
 
 # Fuzzing
@@ -1186,20 +1201,6 @@ Pending paths : 0 faves, 0 total
 Pending per fuzzer : 0 faves, 0 total (on average)
 Crashes found : 0 locally unique
 ```
-
-# Rust & Security
-
-* Non-executable Stack yes
-* ASLR: yes
-* RELRO: possible (not by default)
-* Integer overflow:
-    * yes (debug)
-    * no (release)
-* explicit types or operations can be used
-
-
-# Performances
-
 
 # Project status
 
@@ -1220,7 +1221,7 @@ Crashes found : 0 locally unique
 
 # Results
 
-- **Safe** parsers
+- **Safe** parsers (with some limits)
 - and **reusable**
 - Writing parsers is faster
 - No more segfaults!
@@ -1243,7 +1244,7 @@ Similar efforts:
 * [Librsvg >= 2.41.0](https://mail.gnome.org/archives/desktop-devel-list/2017-January/msg00001.html)
 * [gstreamer](https://coaxion.net/blog/2016/11/writing-gstreamer-elements-in-rust-part-3-parsing-data-from-untrusted-sources-like-its-2016/)
 
-# Conclusion
+# Thanks
 
 - It's 2017, it's time to do better
     - C is not good for parsers
@@ -1257,6 +1258,7 @@ Similar efforts:
 We need you!
 </details>
 
+# Slides overflow
 
 
 
