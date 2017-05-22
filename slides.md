@@ -1277,6 +1277,10 @@ We need you!
     - do not mix parsing and interpreting data
     - do not mix parsing and raising alerts
 
+<aside class="notes">
+XXX remove that slide ?
+</details>
+
 # Parser combinators
 
 - Network protocols are hard
@@ -1286,3 +1290,6 @@ We need you!
 - Reusing parsers is required
     - Example: TLS -> X.509 -> DER, PE -> PKCS7 -> DER, SNMP -> BER
 
+<aside class="notes">
+XXX remove that slide ?
+</details>

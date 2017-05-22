@@ -12,6 +12,15 @@
         <link rel="stylesheet" href="css/github.css">
 
         <link rel="stylesheet" type="text/css" href="mystyle.css">
+
+<script>
+	var link = document.createElement( 'link' );
+	link.rel = 'stylesheet';
+	link.type = 'text/css';
+	link.href = window.location.search.match( /print-pdf/gi ) ? 'reveal.js/css/print/pdf.css' : 'reveal.js/css/print/paper.css';
+	document.getElementsByTagName( 'head' )[0].appendChild( link );
+</script>
+
     </head>
     <body>
         <div class="reveal">
@@ -51,6 +60,7 @@ Reveal.initialize({
     minScale: 1,
     maxScale: 1,
     slideNumber: 'c/t',
+    pdfMaxPagesPerSlide: 1,
 
     chalkboard: {
             // optionally load pre-recorded chalkboard drawing from file
