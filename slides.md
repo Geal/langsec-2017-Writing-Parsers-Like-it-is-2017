@@ -258,12 +258,10 @@ fn data<'a>(i: &'a [u8]) -> ::nom::IResult<&'a [u8], &[u8], u32> {
 
 # features
 
-- strings (&str), byte slices and bit streams parsing
-- common combinators (many, pair, peek, etc)
-- regular expressions
-- advanced error management
+- common parser combinator features
 - zero-copy parsing
 - designed with streaming in mind
+- real-world formats
 
 # widely used
 
@@ -294,19 +292,9 @@ VLC handles most audio, video and streaming formats
 - dozens of formats and protocols
 - written in C and C++
 
-# How VLC works
-
-<img src="img/vlc-pipeline.png" class="centered" />
-
-<aside class="notes">
-The pipeline
-
-access -> demux (=> audio and video streams) -> decode -> filter -> (encode -> stream) | (video and audio out)
-</details>
-
 # Code architecture
 
-<img src="img/vlc-arch.png" class="centered" />
+<img src="img/vlc-arch.png" height="75%" class="centered" />
 
 <aside class="notes">
 - libVLCCore: handles module loading, playlist, synchronization, the whole pipeline
@@ -318,15 +306,10 @@ access -> demux (=> audio and video streams) -> decode -> filter -> (encode -> s
 
 - integrating a FLV parser written with nom
 - with an ABI compatible DLL
-- built with autotools
-
-# Archtecture of a VLC module
-
-- a DLL exposes 3 functions:
-  - vlc_entry__VERSION (example: vlc_entry__3_0_0a)
-  - vlc_entry_copyright__VERSION
-  - vlc_entry_license__VERSION
-- the entry function registers structures and callbacks
+    - vlc_entry__VERSION (example: vlc_entry__3_0_0a)
+    - vlc_entry_copyright__VERSION
+    - vlc_entry_license__VERSION
+    - the entry function registers structures and callbacks
 
 <aside class="notes">
 so we don't control anything from the module, we just take orders
@@ -427,9 +410,10 @@ mod ffi {
   #[link(name = "vlccore")]
   extern {
     pub fn stream_Read(
-      stream: *mut stream_t,
-      buf: *const c_void,
-      size: size_t) -> ssize_t;
+                       stream: *mut stream_t,
+                       buf: *const c_void,
+                       size: size_t
+           ) -> ssize_t;
   }
 }
 ```
@@ -448,7 +432,7 @@ pub fn stream_Read(stream: *mut stream_t, buf: &mut [u8]) -> ssize_t {
 }
 ```
 
-# rust-bindgen automates most of it
+# rust-bindgen can automate most of it
 
 # Write a FLV parser
 
@@ -473,68 +457,21 @@ named!(pub header<Header>,
 show the do_parse syntax that could replace it
 </details>
 
-# FLV packets
-
-```rust
-named!(pub tag_header<TagHeader>,
-  chain!(
-    tag_type: switch!(be_u8,
-      8  => value!(TagType::Audio) |
-      9  => value!(TagType::Video) |
-      18 => value!(TagType::Script)
-    )                                ~
-    data_size:          be_u24       ~
-    timestamp:          be_u24       ~
-    timestamp_extended: be_u8        ~
-    stream_id:          be_u24       ,
-    || {
-      TagHeader {
-        tag_type:  tag_type,
-        data_size: data_size,
-        timestamp: ((timestamp_extended as u32) << 24) + timestamp,
-        stream_id: stream_id,
-      }
-    }
-  )
-);
-```
-
-<aside class="notes">
-the tag header is preceded by a 4 bytes big endian uint indicating the previous tag's size
-</details>
-
 # Parse the header
 
 ```rust
 extern "C" fn open(p_demux: *mut demux_t<demux_sys_t>) -> c_int {
-  let p_demux = unsafe { &mut (*p_demux) };
-  let sl = stream_Peek(p_demux.s, 9);
+  let data = stream_Peek(p_demux.s, 9);
 
-  if let IResult::Done(_,h) = flavors::parser::header(sl) {
+  if let IResult::Done(_,header) = flavors::parser::header(data) {
 
-    vlc_Log!(p_demux, LogType::Info, PLUGIN_NAME, "FOUND FLV FILE\n
+    println!("FOUND FLV FILE\n
       version: {}\nhas_audio: {}\n has_video: {}\noffset: {}\n",
     h.version, h.audio, h.video, h.offset);
 
     stream_Seek(p_demux.s, h.offset as uint64_t);
 
-    p_demux.pf_demux   = Some(demux);
-    p_demux.pf_control = Some(control);
-    p_demux.p_sys = Box::into_raw(Box::new(demux_sys_t {
-      i_pos: h.offset as usize,
-      i_size: 0,
-      video_initialized: false,
-      video_es_format: unsafe { zeroed() },
-      video_es_id: 0 as *mut c_void,
-      audio_initialized: false,
-      audio_es_format: unsafe { zeroed() },
-      audio_es_id: 0 as *mut c_void,
-    }));
-
-    return 0;
-  }
-
-  -1
+    // [...]
 }
 ```
 
@@ -549,196 +486,14 @@ proceed step by step. Parse a bit, then advance, log everything
 - use the Rust compiler to generate a .o
 - libtool will handle linking
 
+# Integration
+
+<img src="img/suricata-c-rust.svg" height="50%" class="centered" />
+
+* Rust code: builds an archive (`libsuricata-rust.a`) or `.so`
+* Linked with Suricata's executable
 
 
-
-# More info
-
-* Nom: https://github.com/Geal/nom
-* slides: http://dev.unhandledexpression.com/slides/rust-belt-rust-2016/vlc
-* flavors: https://github.com/Geal/flavors
-* helper library: https://github.com/Geal/vlc_module.rs
-* the module: https://github.com/Geal/rust-vlc-demux
-* twitter: <span class="twitter">@gcouprie</span>
-
-
-# Thanks!
-
-# Parsers ?
-
-# STOP
-
-#
-
-#
-
-#########################################
-
-
-
-
-# VLC media player vulnerabilities
-
-- invalid freeing of pointers in 3GP (CVE-2015-5949)
-- crash with divide by zero in ASF (CVE-2014-1684)
-- buffer overflow for Dirac streams (CVE-2014-9629)
-- invalid memory access in RTP (CVE-2014-9630)
-- buffer overflows in MP4 demuxer (CVE-2014-9626, CVE-2014-9627, CVE-2014-9628)
-
-<aside class="notes">
-handling multiple formats is dangerous. MP4 has a lot of flaws, but not the MKV demuxer
-
-fuzzing
-</details>
-
-# Format vulnerabilities
-
-* C
-* manual parsing
-* weird formats
-
-<aside class="notes">
-a good developer would avoid those issues
-But how can we fight the urge to write vulnerable code?
-</details>
-
-# We need a practical solution
-
-- hard to do mistakes
-- memory safe
-- embeddable in C (no runtime or GC)
-- efficient, streaming
-
-<aside class="notes">
-if not for the "embeddable", I would write some haskell
-</details>
-
-# Yay! Rust!
-
-<img src="img/rust-logo-512x512.png" class="centered" />
-
-<aside class="notes">
-- Rust makes memory handling easier
-- slices are really useful
-- easy FFI
-</details>
-
-# nom features
-
-<img src="img/colorful-ftyp.png" />
-
-- strings (&str), byte slices and bit streams parsing
-- common combinators (many, pair, peek, etc)
-- regular expressions
-- advanced error management
-
-# benefits
-
-- works on all Rust versions since 1.0
-- no syntax extensions, no impl Trait
-- supports no_std
-- can be as fast as C parsers
-- designed with streaming in mind
-- very easy to extend (it's just functions!)
-
-# nom 2.0 highlights: whitespace parsing
-
-```rust
-named!(key_value<(&str,JsonValue)>,
-  ws!(
-    separated_pair!(
-      string,
-      tag!(":"),
-      value
-    )
-  )
-);
-```
-
-# nom 2.0 highlights: permutation combinator
-
-```rust
-named!(perm<&str,(&str, &str, &str)>,
-  permutation!(tag!("abcd"), tag!("efg"), tag!("hi"))
-);
-
-assert_eq!(perm("efghiabcd"), Done("", ("abcd", "efg", "hi"));
-```
-
-# nom 2.0 highlights: do_parse
-
-```rust
-named!(tag_length_value,
-  do_parse!(
-            tag!( &[ 42u8 ][..] ) >>
-    length: be_u8                 >>
-    bytes:  take!(length)         >>
-    (bytes)
-  )
-);
-```
-
-# nom 2.0 highlights: custom input types
-
-- not limited to &[u8] and &str anymore
-- can work with iterators
-- can work with ropes based structures
-- will allow SIMD based parsing
-
-# nom 2.0 highlights
-
-- tag_no_case: case independent comparison
-- &str and &[u8] specific combinators were merged
-- big cleanup and breaking changes
-- simple VS verbose error management
-- 30% to 50% performance gain for most parsers
-
-# VLC media player
-
-<img src="img/largeVLC.png" class="centered" />
-
-# How VLC works
-
-<img src="img/vlc-pipeline.png" class="centered" />
-
-<aside class="notes">
-The pipeline
-
-access -> demux (=> audio and video streams) -> decode -> filter -> (encode -> stream) | (video and audio out)
-</details>
-
-# Code architecture
-
-<img src="img/vlc-arch.png" class="centered" />
-
-<aside class="notes">
-- libVLCCore: handles module loading, playlist, synchronization, the whole pipeline
-- libVLC: a layer above libVLCCore for external applications
-- vlc: a small executable calling libVLC
-</details>
-
-# Lifetime of a VLC module
-
-- libVLCCore looks for dynamic libraries in a specified folder
-- those dynamic libraries expose three functions:
-  - vlc_entry__VERSION (example: vlc_entry__3_0_0a)
-  - vlc_entry_copyright__VERSION
-  - vlc_entry_license__VERSION
-- libVLCCore calls vlc_entry__VERSION and the module registers callbacks
-- libVLCCore calls the module when needed
-
-<aside class="notes">
-so we don't control anything from the module, we just take orders
-</details>
-
-
-# The plan
-
-- reproduce needed structures from VLC headers
-- link to libVLCCore and import useful functions
-- reproduce the module registration code
-- write a FLV parser
-- parse stuff
 
 
 # Summing up
@@ -747,36 +502,6 @@ so we don't control anything from the module, we just take orders
 - isolate unsafe APIs
 - the parser is the easiest part
 - we don't own everything
-
-# Next steps
-
-- implement seeking
-- merging it in the VLC repository
-- predownload dependencies with cargo-vendor
-- complete the libVLCCore imports
-- more formats
-
-# Greetings
-
-- thanks to Guillaume Gomez (imperio) for his help on the parser and the plugin
-- thanks to Luca Barbato (lu-zero) for solving the build system issues
-
-# More info
-
-* Nom: https://github.com/Geal/nom
-* slides: http://dev.unhandledexpression.com/slides/rust-belt-rust-2016/vlc
-* flavors: https://github.com/Geal/flavors
-* helper library: https://github.com/Geal/vlc_module.rs
-* the module: https://github.com/Geal/rust-vlc-demux
-* twitter: <span class="twitter">@gcouprie</span>
-
-
-<aside class="notes">
-if you want some stickers...
-</details>
-
-# Thanks!
-
 
 
 
@@ -794,6 +519,14 @@ if you want some stickers...
 * Write the abstraction layer
     * Isolating unsafe code
 * Replace the parser in the project
+
+# Good parsers
+
+- Making parsers reusable
+    - do not mix parsing and interpreting data
+    - do not mix parsing and raising alerts
+- Be strict in what you generate, laxist in what you accept
+
 
 
 # Suricata
@@ -920,7 +653,7 @@ named!(parse_tls_handshake_msg_server_hello_tlsv12<TlsMessageHandshake>,
     rand_time: be_u32 >>
     rand_data: take!(28) >> // 28 as 32 (aligned) - 4 (time)
     sidlen:    be_u8 >> // check <= 32, can be 0
-    error_if!(sidlen > 32, Err::Code(ErrorKind::Custom(128))) >>
+               error_if!(sidlen > 32, Err::Code(ErrorKind::Custom(128))) >>
     sid:       cond!(sidlen > 0, take!(sidlen as usize)) >>
     cipher:    be_u16 >>
     comp:      be_u8 >>
@@ -941,78 +674,22 @@ Refine fields, writing new parsers
 # ServerHello (refined)
 
 ```rust
-pub enum TlsExtension{
+pub enum TlsExtension<'a>{
   SNI(Vec<(u8,&'a[u8])>),
   // ...
 };
 
 pub struct TlsServerHelloContents<'a> {
   pub version: u16,
-  // ...
+  pub rand_time: u32,
+  pub rand_data: &'a[u8],
+  pub session_id: Option<&'a[u8]>,
+  pub cipher: u16,
+  pub compression: u8,
 
-  pub ext: Option< TlsExtension<'a> >,
+  // This field now contains the parsed extensions
+  pub ext: Vec<TlsExtension<'a>>,
 }
-```
-
-# Good parsers
-
-- Making parsers reusable
-    - do not mix parsing and interpreting data
-    - do not mix parsing and raising alerts
-- Be strict in what you generate, laxist in what you accept
-
-
-# Accessor functions
-
-```rust
-#[repr(u16)]
-pub enum TlsVersion {
-  Ssl30 = 0x0300,
-  Tls10 = 0x0301,
-  Tls11 = 0x0302,
-  Tls12 = 0x0303,
-  Tls13 = 0x0304,
-
-  Tls13Draft18 = 0x7f12,
-}
-
-impl<'a> TlsServerHelloV13Contents<'a> {
-  pub fn get_version(&self) -> Option<TlsVersion> {
-    TlsVersion::from_u16(self.version)
-  }
-}
-
-// [...]
-
-let opt_vers = server_hello.get_version();
-...
-}
-```
-
-<aside class="notes">
-In some cases, a parser should accept an invalid input (for ex. an invalid enum value) but mark it as invalid.
-</details>
-
-# Defragmentation
-
-```Rust
-pub fn parse_tcp_level<'b>(&mut self, i: &'b[u8]) -> u32 {
-  let mut v : Vec<u8>;
-  // Check if TCP data is being defragmented
-  let tcp_buffer = match self.tcp_buffer.len() {
-    0 => i,
-      _ => {
-        v = self.tcp_buffer.split_off(0);
-        // sanity check vector length to avoid memory exhaustion
-        // maximum length may be 2^24 (handshake message)
-        if self.tcp_buffer.len() + i.len() > 16777216 {
-          self.events.push(TlsParserEvents::RecordOverflow as u32);
-          return R_STATUS_EVENTS;
-        };
-        v.extend_from_slice(i);
-        v.as_slice()
-      },
-  };
 ```
 
 # TLS state machine
@@ -1034,71 +711,27 @@ pub enum TlsState {
   ServerHello,
   ...
 }
-
-fn tls_state_transition_handshake(state: TlsState, msg: &TlsMessageHandshake)
-  -> Result<TlsState,StateChangeError> {
-    match (state,msg) {
-      (None,        &ClientHello(ref msg)) => {
-        match msg.session_id {
-          Some(_) => Ok(AskResumeSession),
-            _       => Ok(ClientHello)
-        }
-      },
-        // Server certificate
-        (ClientHello, &ServerHello(_))       => Ok(ServerHello),
-        (ServerHello, &Certificate(_))       => Ok(Certificate),
-        // Server certificate, no client certificate requested
-        (Certificate, &ServerKeyExchange(_)) => Ok(ServerKeyExchange),
-        // [...]
-        // All other transitions are considered invalid
-        _ => Err(InvalidTransition),
 ```
 
-# Sharing structures
+# TLS state machine
 
-* Structures can be shared with C:
-    * either as opaque pointers (simple)
-    * or as compatible memory representation
-* Can be used for all base types except unions
-* Compromise between speed and design
+```Rust
+match (old_state,msg) {
+    // Server certificate
+    (ClientHello,      &ServerHello(_))       => Ok(ServerHello),
+    (ServerHello,      &Certificate(_))       => Ok(Certificate),
+    // Server certificate, no client certificate requested
+    (Certificate,      &ServerKeyExchange(_)) => Ok(ServerKeyExchange),
+    (Certificate,      &CertificateStatus(_)) => Ok(CertificateSt),
+    (CertificateSt,    &ServerKeyExchange(_)) => Ok(ServerKeyExchange),
+    (ServerKeyExchange,&ServerDone(_))        => Ok(ServerHelloDone),
+    (ServerHelloDone  ,&ClientKeyExchange(_)) => Ok(ClientKeyExchange),
 
-# Bindings
 
-- Automatic generation of bindings
-    * [rusty-cheddar](https://github.com/Sean1708/rusty-cheddar): generate C header files from Rust
-    * [rusty-binder](https://gitlab.com/rusty-binder/rusty-binder): create Rust bindings for any language
-    * [corrode](https://github.com/jameysharp/corrode): C to Rust translator
-    * [rust-bindgen](https://github.com/servo/rust-bindgen): generate Rust FFI bindings to C and C++ libraries
-
-- Easy to use
-- Converting is not enough: it's better to learn the language patterns
-
-<aside class="notes">
-XXX remove that slide ?
-</details>
-
-# Integration
-
-<img src="img/suricata-c-rust.svg" height="50%" class="centered" />
-
-* Rust code: builds an archive (`libsuricata-rust.a`) or `.so`
-* Linked with Suricata's executable
-
-# Integration
-
-* Suricata 'sees' the Rust parser as a set of C functions
-* Rust code uses the helper functions (log, files, etc.) of Suricata
-
-```C
-static int Nfs3TcpParseResponse(Flow *f, void *state, AppLayerParserState *pstate,
-    uint8_t *input, uint32_t input_len, void *local_data)
-{
-  uint16_t file_flags = FileFlowToFlags(f, STREAM_TOCLIENT);
-  r_nfstcp_setfileflags(1, state, file_flags);
-
-  int r = r_nfstcp_parse(1, input, input_len, state);
-  SCLogDebug("r %d", r);
+    // All other transitions are considered invalid
+    _ => Err(InvalidTransition),
 ```
+
 # Tests
 
 <div class="smaller">
@@ -1110,7 +743,7 @@ static int Nfs3TcpParseResponse(Flow *f, void *state, AppLayerParserState *pstat
 
 # Tests
 
-Replacing code requires to prove equivalence
+Replacing code requires to show equivalence
 
 - Performance: benchmarks
 - Functionnalities: unit tests
@@ -1119,6 +752,7 @@ Replacing code requires to prove equivalence
 # Performance
 
 - Often the first question you get
+    - even when that is not critical
 - Required to replace code
 
 # Unit tests
@@ -1126,33 +760,18 @@ Replacing code requires to prove equivalence
 Encouraged by the language (`cargo test`)
 
 ```rust
-static DATA: &'static [u8] = &[
-  0x16, 0x03, 0x03, ...
-];
-
 #[test]
-fn test_tls_record_serverhello() {
-  let expected = TlsPlaintext {
-    hdr: TlsRecordHeader {
-    record_type: TlsRecordType::Handshake as u8,
-                   version: 0x0303,
-                   len: 59,
-         },
     msg: vec![TlsMessage::Handshake(
              TlsMessageHandshake::ServerHello(
                TlsServerHelloContents {
                 version: 0x0303,
                 rand_time: 0x57c457da,
-                rand_data: &bytes[15..43],
                 session_id: None,
-                cipher: 0xc02f,
-                compression: 0,
-                ext: Some(&bytes[49..]),
-              })
-           )]
-  };
+  // [...]
+
+
+
   assert_eq!(parse_tls_plaintext(DATA), IResult::Done(empty, expected));
-}
 ```
 
 # Unit tests
@@ -1270,6 +889,19 @@ We need you!
 
 
 
+# More info
+
+* Nom: https://github.com/Geal/nom
+* slides: http://dev.unhandledexpression.com/slides/rust-belt-rust-2016/vlc
+* flavors: https://github.com/Geal/flavors
+* helper library: https://github.com/Geal/vlc_module.rs
+* the module: https://github.com/Geal/rust-vlc-demux
+* twitter: <span class="twitter">@gcouprie</span>
+
+
+
+
+
 
 # Standalone parsers
 
@@ -1293,3 +925,4 @@ XXX remove that slide ?
 <aside class="notes">
 XXX remove that slide ?
 </details>
+
