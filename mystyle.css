@@ -37,6 +37,10 @@
   box-shadow: none;
 }
 
+.small {
+  font-size: 28px;
+}
+
 .smaller {
   font-size: 24px;
 }

@@ -28,12 +28,12 @@
 <tr>
 <td>
 <center>
-<img src="img/clever_cloud.png" height="30%" />
+<img src="img/clever_cloud.png" height="40%" />
 </center>
 </td>
 <td>
 <center>
-<img src="img/Anssi.png" height="25%" />
+<img src="img/Anssi.png" height="35%" />
 </center>
 </td>
 </tr>
