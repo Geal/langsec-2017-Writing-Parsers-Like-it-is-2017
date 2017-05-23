@@ -4,15 +4,40 @@
 
 # Who
 
+<table>
+
+<tr>
+
+<td class="smaller" height="50%">
+* Geoffroy Couprie
 * Security and QA at Clever Cloud
 * Freelance consultant, security and architecture
 * <span class="twitter">@gcouprie</span>
 * geoffroy.couprie@clever-cloud.com
+</td>
 
+<td class="smaller" height="50%">
+* Pierre Chifflier
 * Head of the Detection Research lab at ANSSI
-* Security, Compilers, Languages, Free Software
+* Security, compilers and languages
 * <span class="twitter">@pollux7</span>
 * pierre.chifflier@ssi.gouv.fr
+
+</tr>
+
+<tr>
+<td>
+<center>
+<img src="img/clever_cloud.png" height="30%" />
+</center>
+</td>
+<td>
+<center>
+<img src="img/Anssi.png" height="25%" />
+</center>
+</td>
+</tr>
+</table>
 
 <aside class="notes">
 rust main language for nearly a year now
@@ -776,55 +801,27 @@ proceed step by step. Parse a bit, then advance, log everything
 
 
 
-# Summing up
+# Summing up: parsers
+
+- Use only safe code
+- Avoid mixing parsing and interpretion
+- Be strict in what you generate, laxist in what you accept
+- Parsers are the easiest part
+
+# Summing up: integration
 
 - work a lot on the build system
 - isolate unsafe APIs
 - the parser is the easiest part
 - we don't own everything
 
-
-
-
-# Methodology
+# Final step
 
 <img src="img/tenor.gif" width="30%" style="float: right" />
 
-* Choose candidate program and parsers
-* Write independant parsers
-    * In 'pure' Rust (no 'unsafe' code)
-    * Using nom
-* Test & fuzz
-* Define the C-Rust communication
-* Write the abstraction layer
-    * Isolating unsafe code
-* Replace the parser in the project
-
-# Good parsers
-
-- Making parsers reusable
-    - do not mix parsing and interpreting data
-    - do not mix parsing and raising alerts
-- Be strict in what you generate, laxist in what you accept
+- Replace the parser in the project
 
 
-
-# Project status
-
-- Project site: [Rusticata](https://github.com/rusticata)
-- Published:
-    - TLS
-    - IPsec (IKEv2 only)
-    - NTP
-    - DER, X.509
-    - Radius (partial)
-    - SNMP (partial)
-- Merge upstream under discussion (4.0 ?)
-- Added by Suricata: DNS, Quic, NFSv3 (TCP)
-- Other parsers (in progress):
-    - PE
-    - SSH
-    - HTTP/2
 
 # Results
 
@@ -842,14 +839,14 @@ proceed step by step. Parse a bit, then advance, log everything
     - Macros are hard to debug
     - Lifetimes can be difficult
 
-# Projets
+# More info
 
-Similar efforts:
+* Nom: [https://github.com/Geal/nom](https://github.com/Geal/nom)
+* Rusticata: [https://github.com/rusticata](https://github.com/rusticata)
+* VLC helper library: https://github.com/Geal/vlc_module.rs
+* VLC module: https://github.com/Geal/rust-vlc-demux
+* twitter: <span class="twitter">@gcouprie</span>, <span class="twitter">@pollux7</span>
 
-* [syslog-ng regex parser](https://syslog-ng.org/filling-the-parse-method/)
-* [FLV plugin for VLC](https://github.com/Geal/rust-vlc-demux)
-* [Librsvg >= 2.41.0](https://mail.gnome.org/archives/desktop-devel-list/2017-January/msg00001.html)
-* [gstreamer](https://coaxion.net/blog/2016/11/writing-gstreamer-elements-in-rust-part-3-parsing-data-from-untrusted-sources-like-its-2016/)
 
 # Thanks
 
@@ -865,33 +862,10 @@ Similar efforts:
 We need you!
 </details>
 
-# Slides overflow
-
-
-
-# More info
-
-* Nom: https://github.com/Geal/nom
-* slides: http://dev.unhandledexpression.com/slides/rust-belt-rust-2016/vlc
-* flavors: https://github.com/Geal/flavors
-* helper library: https://github.com/Geal/vlc_module.rs
-* the module: https://github.com/Geal/rust-vlc-demux
-* twitter: <span class="twitter">@gcouprie</span>
 
 
 
 
-
-
-# Standalone parsers
-
-- Making parsers reusable
-    - do not mix parsing and interpreting data
-    - do not mix parsing and raising alerts
-
-<aside class="notes">
-XXX remove that slide ?
-</details>
 
 # Parser combinators
 
