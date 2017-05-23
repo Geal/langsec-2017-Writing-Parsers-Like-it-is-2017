@@ -274,8 +274,288 @@ existing parsers:
 
 # Integrating Rust in existing C projects
 
+- Suricata
 - VLC media player
-- suricata
+
+
+
+
+# Suricata
+
+<img src="img/suricata.jpg" class="centered" />
+
+* <a href="https://suricata-ids.org/">Suricata</a>: open source network threat detection engine
+* Implements a lot of parsers
+* Multi-threaded, fast
+
+# Hardening Suricata
+
+<img src="img/meerkat_helmet.jpg" class="centered" />
+
+* Isolate critical functions (parsing)
+* Use existing code (detection, etc.)
+* Keep performances and thread-safety
+
+# Candidate protocol: TLS
+
+- Important protocols
+- Many implementation errors
+- New 'parser writing' iteration
+
+<aside class="notes">
+- I wrote the previous TLS parser
+- Writing a parser helps writing the new one
+</details>
+
+# Reading RFCs
+
+<div class="smaller">
+
+- [RFC 2246](https://tools.ietf.org/html/rfc2246): The TLS Protocol Version 1.0
+- [RFC 4346](https://tools.ietf.org/html/rfc4346): The Transport Layer Security (TLS) Protocol Version 1.1
+- [RFC 4366](https://tools.ietf.org/html/rfc4366): Transport Layer Security (TLS) Extensions
+- [RFC 4492](https://tools.ietf.org/html/rfc4492): Elliptic Curve Cryptography (ECC) Cipher Suites for Transport Layer Security (TLS)
+- [RFC 4507](https://tools.ietf.org/html/rfc4507): Transport Layer Security (TLS) Session
+Resumption without Server-Side State
+- [RFC 5077](https://tools.ietf.org/html/rfc5077): Transport Layer Security (TLS) Session
+Resumption without Server-Side State
+- [RFC 5246](https://tools.ietf.org/html/rfc5246): The Transport Layer Security (TLS) Protocol Version 1.2
+- [RFC 5430](https://tools.ietf.org/html/rfc5430): Suite B Profile for Transport Layer Security (TLS)
+- [RFC 5746](https://tools.ietf.org/html/rfc5746): Transport Layer Security (TLS) Renegotiation Indication Extension
+- [RFC 6066](https://tools.ietf.org/html/rfc6066): Transport Layer Security (TLS) Extensions: Extension Definitions
+- [RFC 6520](https://tools.ietf.org/html/rfc6520): Transport Layer Security (TLS) and
+Datagram Transport Layer Security (DTLS) Heartbeat Extension
+- [RFC 6961](https://tools.ietf.org/html/rfc6961): The Transport Layer Security (TLS)
+Multiple Certificate Status Request Extension
+- [RFC 6962](https://tools.ietf.org/html/rfc6962): Certificate Transparency
+- [RFC 7027](https://tools.ietf.org/html/rfc7027): Elliptic Curve Cryptography (ECC) Brainpool Curves
+for Transport Layer Security (TLS)
+- [RFC 7301](https://tools.ietf.org/html/rfc7301): Transport Layer Security (TLS)
+Application-Layer Protocol Negotiation Extension
+- [RFC 7366](https://tools.ietf.org/html/rfc7366): Encrypt-then-MAC for Transport Layer Security (TLS) and
+Datagram Transport Layer Security (DTLS)
+- [RFC 7627](https://tools.ietf.org/html/rfc7627): Transport Layer Security (TLS) Session Hash and
+Extended Master Secret Extension
+- [RFC 7685](https://tools.ietf.org/html/rfc7685): A Transport Layer Security (TLS) ClientHello Padding Extension
+- [RFC 7919](https://tools.ietf.org/html/rfc7919): Negotiated Finite Field Diffie-Hellman Ephemeral Parameters
+for Transport Layer Security (TLS)
+- [draft-agl-tls-nextprotoneg-03](https://tools.ietf.org/html/draft-agl-tls-nextprotoneg-03): Transport Layer Security (TLS) Next Protocol Negotiation Extension
+
+</div>
+
+# Specifications
+
+```
+struct {
+       ProtocolVersion server_version;
+       Random random;
+       SessionID session_id;
+       CipherSuite cipher_suite;
+       CompressionMethod compression_method;
+       select (extensions_present) {
+           case false:
+               struct {};
+           case true:
+               Extension extensions<0..2^16-1>;
+       };
+   } ServerHello;
+```
+
+# Method
+
+Define structure
+
+# ServerHello
+
+ServerHello (TLS 1.2)
+
+```rust
+pub struct TlsServerHelloContents<'a> {
+  pub version: u16,
+  pub rand_time: u32,
+  pub rand_data: &'a[u8],
+  pub session_id: Option<&'a[u8]>,
+  pub cipher: u16,
+  pub compression: u8,
+
+  pub ext: Option<&'a[u8]>,
+}
+
+pub enum TlsMessageHandshake<'a> {
+  HelloRequest,
+  ClientHello(TlsClientHelloContents<'a>),
+  ServerHello(TlsServerHelloContents<'a>),
+  ...
+}
+```
+
+# Method
+
+Write a parser reading the fields as bytes
+
+# TLS parser
+
+ServerHello (TLS 1.2)
+
+```rust
+named!(parse_tls_handshake_msg_server_hello_tlsv12<TlsMessageHandshake>,
+  do_parse!(
+    v:         be_u16 >>
+    rand_time: be_u32 >>
+    rand_data: take!(28) >> // 28 as 32 (aligned) - 4 (time)
+    sidlen:    be_u8 >> // check <= 32, can be 0
+               error_if!(sidlen > 32, Err::Code(ErrorKind::Custom(128))) >>
+    sid:       cond!(sidlen > 0, take!(sidlen as usize)) >>
+    cipher:    be_u16 >>
+    comp:      be_u8 >>
+    ext:       opt!(complete!(length_bytes!(be_u16))) >>
+    (
+      TlsMessageHandshake::ServerHello(
+        TlsServerHelloContents::new(v,rand_time,rand_data,sid,cipher,comp,ext)
+      )
+    )
+  )
+);
+```
+
+# Method
+
+Refine fields, writing new parsers
+
+# ServerHello (refined)
+
+```rust
+pub enum TlsExtension<'a>{
+  SNI(Vec<(u8,&'a[u8])>),
+  // ...
+};
+
+pub struct TlsServerHelloContents<'a> {
+  pub version: u16,
+  pub rand_time: u32,
+  pub rand_data: &'a[u8],
+  pub session_id: Option<&'a[u8]>,
+  pub cipher: u16,
+  pub compression: u8,
+
+  // This field now contains the parsed extensions
+  pub ext: Vec<TlsExtension<'a>>,
+}
+```
+
+# TLS state machine
+
+<img src="img/tls-state-machine.jpg" class="centered" />
+
+<aside class="notes">
+Ureadable slide, just to show the complexity of the TLS State Machine.
+</details>
+
+# TLS state machine
+
+```Rust
+pub enum TlsState {
+  None,
+  ClientHello,
+  AskResumeSession,
+  ResumeSession,
+  ServerHello,
+  ...
+}
+```
+
+# TLS state machine
+
+```Rust
+match (old_state,msg) {
+    // Server certificate
+    (ClientHello,      &ServerHello(_))       => Ok(ServerHello),
+    (ServerHello,      &Certificate(_))       => Ok(Certificate),
+    // Server certificate, no client certificate requested
+    (Certificate,      &ServerKeyExchange(_)) => Ok(ServerKeyExchange),
+    (Certificate,      &CertificateStatus(_)) => Ok(CertificateSt),
+    (CertificateSt,    &ServerKeyExchange(_)) => Ok(ServerKeyExchange),
+    (ServerKeyExchange,&ServerDone(_))        => Ok(ServerHelloDone),
+    (ServerHelloDone  ,&ClientKeyExchange(_)) => Ok(ClientKeyExchange),
+
+
+    // All other transitions are considered invalid
+    _ => Err(InvalidTransition),
+```
+
+# Tests
+
+<div class="smaller">
+
+<img src="img/cat_jump_fail.gif" class="centered" />
+
+"Because testing is doubting"
+</div>
+
+Replacing code requires to show equivalence
+
+- Performance: benchmarks
+- Functionnalities: unit tests
+
+<aside class="notes">
+- Often the first question you get
+    - even when that is not critical
+- Required to replace code
+</details>
+
+
+# Unit tests
+
+Encouraged by the language (`cargo test`)
+
+```rust
+#[test]
+    msg: vec![TlsMessage::Handshake(
+             TlsMessageHandshake::ServerHello(
+               TlsServerHelloContents {
+                version: 0x0303,
+                rand_time: 0x57c457da,
+                session_id: None,
+  // [...]
+
+
+
+  assert_eq!(parse_tls_plaintext(DATA), IResult::Done(empty, expected));
+```
+
+Tip: use the project's own tests (and test data)
+
+
+# Checking Security
+
+- manual checks
+    - LLVM IR
+    - assembly
+- fuzzing
+    - use "smart" (instrumented) fuzzing
+    - try to explore all possible paths
+    - very useful to catch unexpected `panic`
+
+
+# Fuzzing
+
+Using [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) or [afl-rs](https://github.com/frewsxcv/afl.rs)
+
+```
+Fuzzers alive : 5
+Total run time : 19 days, 13 hours
+Total execs : 4054 million
+Cumulative speed : 11987 execs/sec
+Pending paths : 0 faves, 0 total
+Pending per fuzzer : 0 faves, 0 total (on average)
+Crashes found : 0 locally unique
+```
+
+
+# Integration ?
+
+
+
 
 # VideoLAN
 
@@ -528,306 +808,6 @@ proceed step by step. Parse a bit, then advance, log everything
 - Be strict in what you generate, laxist in what you accept
 
 
-
-# Suricata
-
-<img src="img/suricata.jpg" class="centered" />
-
-* <a href="https://suricata-ids.org/">Suricata</a>: open source network threat detection engine
-* Implements a lot of parsers
-* Multi-threaded, fast
-
-# Hardening Suricata
-
-<img src="img/meerkat_helmet.jpg" class="centered" />
-
-* Isolate critical functions (parsing)
-* Use existing code (detection, etc.)
-* Keep performances and thread-safety
-
-# Candidate protocol: TLS
-
-- Important protocols
-- Many implementation errors
-- New 'parser writing' iteration
-
-<aside class="notes">
-- I wrote the previous TLS parser
-- Writing a parser helps writing the new one
-</details>
-
-# Reading RFCs
-
-<div class="smaller">
-
-- [RFC 2246](https://tools.ietf.org/html/rfc2246): The TLS Protocol Version 1.0
-- [RFC 4346](https://tools.ietf.org/html/rfc4346): The Transport Layer Security (TLS) Protocol Version 1.1
-- [RFC 4366](https://tools.ietf.org/html/rfc4366): Transport Layer Security (TLS) Extensions
-- [RFC 4492](https://tools.ietf.org/html/rfc4492): Elliptic Curve Cryptography (ECC) Cipher Suites for Transport Layer Security (TLS)
-- [RFC 4507](https://tools.ietf.org/html/rfc4507): Transport Layer Security (TLS) Session
-Resumption without Server-Side State
-- [RFC 5077](https://tools.ietf.org/html/rfc5077): Transport Layer Security (TLS) Session
-Resumption without Server-Side State
-- [RFC 5246](https://tools.ietf.org/html/rfc5246): The Transport Layer Security (TLS) Protocol Version 1.2
-- [RFC 5430](https://tools.ietf.org/html/rfc5430): Suite B Profile for Transport Layer Security (TLS)
-- [RFC 5746](https://tools.ietf.org/html/rfc5746): Transport Layer Security (TLS) Renegotiation Indication Extension
-- [RFC 6066](https://tools.ietf.org/html/rfc6066): Transport Layer Security (TLS) Extensions: Extension Definitions
-- [RFC 6520](https://tools.ietf.org/html/rfc6520): Transport Layer Security (TLS) and
-Datagram Transport Layer Security (DTLS) Heartbeat Extension
-- [RFC 6961](https://tools.ietf.org/html/rfc6961): The Transport Layer Security (TLS)
-Multiple Certificate Status Request Extension
-- [RFC 6962](https://tools.ietf.org/html/rfc6962): Certificate Transparency
-- [RFC 7027](https://tools.ietf.org/html/rfc7027): Elliptic Curve Cryptography (ECC) Brainpool Curves
-for Transport Layer Security (TLS)
-- [RFC 7301](https://tools.ietf.org/html/rfc7301): Transport Layer Security (TLS)
-Application-Layer Protocol Negotiation Extension
-- [RFC 7366](https://tools.ietf.org/html/rfc7366): Encrypt-then-MAC for Transport Layer Security (TLS) and
-Datagram Transport Layer Security (DTLS)
-- [RFC 7627](https://tools.ietf.org/html/rfc7627): Transport Layer Security (TLS) Session Hash and
-Extended Master Secret Extension
-- [RFC 7685](https://tools.ietf.org/html/rfc7685): A Transport Layer Security (TLS) ClientHello Padding Extension
-- [RFC 7919](https://tools.ietf.org/html/rfc7919): Negotiated Finite Field Diffie-Hellman Ephemeral Parameters
-for Transport Layer Security (TLS)
-- [draft-agl-tls-nextprotoneg-03](https://tools.ietf.org/html/draft-agl-tls-nextprotoneg-03): Transport Layer Security (TLS) Next Protocol Negotiation Extension
-
-</div>
-
-# Specifications
-
-```
-struct {
-       ProtocolVersion server_version;
-       Random random;
-       SessionID session_id;
-       CipherSuite cipher_suite;
-       CompressionMethod compression_method;
-       select (extensions_present) {
-           case false:
-               struct {};
-           case true:
-               Extension extensions<0..2^16-1>;
-       };
-   } ServerHello;
-```
-
-# Method
-
-Define structure
-
-# ServerHello
-
-ServerHello (TLS 1.2)
-
-```rust
-pub struct TlsServerHelloContents<'a> {
-  pub version: u16,
-  pub rand_time: u32,
-  pub rand_data: &'a[u8],
-  pub session_id: Option<&'a[u8]>,
-  pub cipher: u16,
-  pub compression: u8,
-
-  pub ext: Option<&'a[u8]>,
-}
-
-pub enum TlsMessageHandshake<'a> {
-  HelloRequest,
-  ClientHello(TlsClientHelloContents<'a>),
-  ServerHello(TlsServerHelloContents<'a>),
-  ...
-}
-```
-
-# Method
-
-Write a parser reading the fields as bytes
-
-# TLS parser
-
-ServerHello (TLS 1.2)
-
-```rust
-named!(parse_tls_handshake_msg_server_hello_tlsv12<TlsMessageHandshake>,
-  do_parse!(
-    v:         be_u16 >>
-    rand_time: be_u32 >>
-    rand_data: take!(28) >> // 28 as 32 (aligned) - 4 (time)
-    sidlen:    be_u8 >> // check <= 32, can be 0
-               error_if!(sidlen > 32, Err::Code(ErrorKind::Custom(128))) >>
-    sid:       cond!(sidlen > 0, take!(sidlen as usize)) >>
-    cipher:    be_u16 >>
-    comp:      be_u8 >>
-    ext:       opt!(complete!(length_bytes!(be_u16))) >>
-    (
-      TlsMessageHandshake::ServerHello(
-        TlsServerHelloContents::new(v,rand_time,rand_data,sid,cipher,comp,ext)
-      )
-    )
-  )
-);
-```
-
-# Method
-
-Refine fields, writing new parsers
-
-# ServerHello (refined)
-
-```rust
-pub enum TlsExtension<'a>{
-  SNI(Vec<(u8,&'a[u8])>),
-  // ...
-};
-
-pub struct TlsServerHelloContents<'a> {
-  pub version: u16,
-  pub rand_time: u32,
-  pub rand_data: &'a[u8],
-  pub session_id: Option<&'a[u8]>,
-  pub cipher: u16,
-  pub compression: u8,
-
-  // This field now contains the parsed extensions
-  pub ext: Vec<TlsExtension<'a>>,
-}
-```
-
-# TLS state machine
-
-<img src="img/tls-state-machine.jpg" class="centered" />
-
-<aside class="notes">
-Ureadable slide, just to show the complexity of the TLS State Machine.
-</details>
-
-# TLS state machine
-
-```Rust
-pub enum TlsState {
-  None,
-  ClientHello,
-  AskResumeSession,
-  ResumeSession,
-  ServerHello,
-  ...
-}
-```
-
-# TLS state machine
-
-```Rust
-match (old_state,msg) {
-    // Server certificate
-    (ClientHello,      &ServerHello(_))       => Ok(ServerHello),
-    (ServerHello,      &Certificate(_))       => Ok(Certificate),
-    // Server certificate, no client certificate requested
-    (Certificate,      &ServerKeyExchange(_)) => Ok(ServerKeyExchange),
-    (Certificate,      &CertificateStatus(_)) => Ok(CertificateSt),
-    (CertificateSt,    &ServerKeyExchange(_)) => Ok(ServerKeyExchange),
-    (ServerKeyExchange,&ServerDone(_))        => Ok(ServerHelloDone),
-    (ServerHelloDone  ,&ClientKeyExchange(_)) => Ok(ClientKeyExchange),
-
-
-    // All other transitions are considered invalid
-    _ => Err(InvalidTransition),
-```
-
-# Tests
-
-<div class="smaller">
-
-<img src="img/cat_jump_fail.gif" class="centered" />
-
-"Because testing is doubting"
-</div>
-
-# Tests
-
-Replacing code requires to show equivalence
-
-- Performance: benchmarks
-- Functionnalities: unit tests
-
-
-# Performance
-
-- Often the first question you get
-    - even when that is not critical
-- Required to replace code
-
-# Unit tests
-
-Encouraged by the language (`cargo test`)
-
-```rust
-#[test]
-    msg: vec![TlsMessage::Handshake(
-             TlsMessageHandshake::ServerHello(
-               TlsServerHelloContents {
-                version: 0x0303,
-                rand_time: 0x57c457da,
-                session_id: None,
-  // [...]
-
-
-
-  assert_eq!(parse_tls_plaintext(DATA), IResult::Done(empty, expected));
-```
-
-# Unit tests
-
-```
-Running target/debug/deps/tls_handshake-878885468bffee15
-
-running 15 tests
-test tls_handshake::test_tls_message_status_response ... ok
-test tls_handshake::test_tls_record_cert_request_ca ... ok
-test tls_handshake::test_tls_record_certificate ... ok
-test tls_handshake::test_tls_record_cert_request_noca ... ok
-...
-
-test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured
-```
-
-Tip: use the project's own tests (and test data)
-
-
-# Checking Security
-
-- manual checks
-    - LLVM IR
-    - assembly
-- fuzzing
-    - use "smart" (instrumented) fuzzing
-    - try to explore all possible paths
-    - very useful to catch unexpected `panic`
-
-
-# Rust & Security
-
-* Checks of integer accesses, buffer overflow: yes
-* Non-executable Stack yes
-* ASLR: yes
-* RELRO: possible (not by default)
-* Integer overflow:
-    * yes (debug)
-    * no (release)
-* explicit types or operations can be used
-
-
-# Fuzzing
-
-Using [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) or [afl-rs](https://github.com/frewsxcv/afl.rs)
-
-```
-Fuzzers alive : 5
-Total run time : 19 days, 13 hours
-Total execs : 4054 million
-Cumulative speed : 11987 execs/sec
-Pending paths : 0 faves, 0 total
-Pending per fuzzer : 0 faves, 0 total (on average)
-Crashes found : 0 locally unique
-```
 
 # Project status
 
