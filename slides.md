@@ -315,7 +315,7 @@ existing parsers:
 
 # Hardening Suricata
 
-<img src="img/meerkat_helmet.jpg" class="centered" />
+<img src="img/meerkat_helmet.jpg" class="centered" style="float: right" />
 
 * Isolate critical functions (parsing)
 * Use existing code (detection, etc.)
@@ -323,7 +323,7 @@ existing parsers:
 
 # Candidate protocol: TLS
 
-- Important protocols
+- Important protocol
 - Many implementation errors
 - New 'parser writing' iteration
 
@@ -502,7 +502,7 @@ match (old_state,msg) {
     (CertificateSt,    &ServerKeyExchange(_)) => Ok(ServerKeyExchange),
     (ServerKeyExchange,&ServerDone(_))        => Ok(ServerHelloDone),
     (ServerHelloDone  ,&ClientKeyExchange(_)) => Ok(ClientKeyExchange),
-
+    // ...
 
     // All other transitions are considered invalid
     _ => Err(InvalidTransition),
@@ -860,23 +860,5 @@ proceed step by step. Parse a bit, then advance, log everything
 
 <aside class="notes">
 We need you!
-</details>
-
-
-
-
-
-
-# Parser combinators
-
-- Network protocols are hard
-    - Complex formats
-    - Stateful parsing
-    - Many interlaced layers, can be combined
-- Reusing parsers is required
-    - Example: TLS -> X.509 -> DER, PE -> PKCS7 -> DER, SNMP -> BER
-
-<aside class="notes">
-XXX remove that slide ?
 </details>
 
