@@ -175,7 +175,8 @@ compilation times
 # Basic types
 
 ```rust
-fn parser<Input, Output, Error>(input: Input) -> IResult<Input, Output, Error>
+fn parser<Input, Output, Error>(input: Input)
+		-> IResult<Input, Output, Error>
 ```
 
 ```rust
